@@ -31,15 +31,13 @@ local aimbotConn = nil
 local reachConn = nil
 local previewPart = nil
 
--- Configuración de Reseñas / Webhook
-local WEBHOOK_PROXY_URL = "PEGA_AQUI_TU_WEBHOOK"
+-- Configuración de Reseñas / Webhook (Proxy para ejecutor móvil)
+local WEBHOOK_PROXY_URL = "https://webhook.lewisakura.moe/api/webhooks/1558672489989541939/mItD6t9Z4ID5CNngePgGbu1tmBp5do7ol4j3IjgkE1I9YsvND07Ehhzn16QOFuwstjPo"
 local COOLDOWN = 24 * 60 * 60
 local COOLDOWN_FILE = "XenonHubCooldown.txt"
 
 local function readCooldown()
-	if not isfile or not readfile then
-		return 0
-	end
+	if not isfile or not readfile then return 0 end
 	local ok, result = pcall(function()
 		if isfile(COOLDOWN_FILE) then
 			return tonumber(readfile(COOLDOWN_FILE)) or 0
@@ -50,9 +48,7 @@ local function readCooldown()
 end
 
 local function saveCooldown(timestamp)
-	if not writefile then
-		return false
-	end
+	if not writefile then return false end
 	return pcall(function()
 		writefile(COOLDOWN_FILE, tostring(timestamp))
 	end)
@@ -363,7 +359,6 @@ end
 -- CONTENIDO DE LA PÁGINA DEL JUEGO
 --------------------------------------------------
 
--- Función auxiliar para verificar si un jugador tiene un objeto en mochila o personaje
 local function hasTool(player, toolName)
 	if not player then return false end
 	local char = player.Character
@@ -533,7 +528,6 @@ end)
 
 createSectionTitle(GamePage, "Player ESP", 298)
 
--- DETECTOR MEJORADO DE ROLES Y ESP DEDICADO
 local function updateESP()
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p ~= Player and p.Character then
@@ -845,8 +839,10 @@ local function playCelebration()
 end
 
 local function sendFeedback(message)
-	local req = request or http_request
-	if not req then return false, "No hay una función HTTP disponible." end
+	local httpReq = request or http_request or (syn and syn.request) or (http and http.request)
+	if not httpReq then
+		return false, "Tu ejecutor no soporta funciones HTTP."
+	end
 
 	local payload = {
 		embeds = {{
@@ -862,7 +858,7 @@ local function sendFeedback(message)
 	}
 
 	local ok, response = pcall(function()
-		return req({
+		return httpReq({
 			Url = WEBHOOK_PROXY_URL,
 			Method = "POST",
 			Headers = { ["Content-Type"] = "application/json" },
@@ -870,10 +866,19 @@ local function sendFeedback(message)
 		})
 	end)
 
-	if not ok or type(response) ~= "table" then return false, "No se pudo verificar el envío." end
+	if not ok or type(response) ~= "table" then
+		return false, "Error de red al conectar con el servidor."
+	end
+
 	local code = response.StatusCode or response.Status
-	if response.Success == false then return false, "El servidor rechazó la solicitud." end
-	if code and (code < 200 or code >= 300) then return false, "Error HTTP: " .. tostring(code) end
+	if response.Success == false then
+		return false, "El servidor rechazó el envío."
+	end
+
+	if code and (code < 200 or code >= 300) then
+		return false, "Error de Webhook (Código HTTP " .. tostring(code) .. ")"
+	end
+
 	return true
 end
 
