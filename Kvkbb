@@ -359,13 +359,29 @@ end
 -- CONTENIDO DE LA PÁGINA DEL JUEGO
 --------------------------------------------------
 
-local function hasTool(player, toolName)
-	if not player then return false end
+-- Detector avanzado de herramientas para MM2
+local function getPlayerRole(player)
+	if not player then return "Innocent" end
+	
 	local char = player.Character
 	local bp = player:FindFirstChild("Backpack")
-	if char and char:FindFirstChild(toolName) then return true end
-	if bp and bp:FindFirstChild(toolName) then return true end
-	return false
+	
+	local function checkContainer(container)
+		if not container then return nil end
+		for _, item in ipairs(container:GetChildren()) do
+			if item:IsA("Tool") then
+				local name = item.Name:lower()
+				if name:find("knife") or name:find("cuchillo") then
+					return "Murderer"
+				elseif name:find("gun") or name:find("pistola") or name:find("revolver") then
+					return "Sheriff"
+				end
+			end
+		end
+		return nil
+	end
+
+	return checkContainer(char) or checkContainer(bp) or "Innocent"
 end
 
 createSectionTitle(GamePage, "Sheriff", 5)
@@ -380,7 +396,7 @@ createToggleRow(GamePage, "Activar Aimbot (Torso)", SheriffAimbotEnabled, 32, fu
 				if p ~= Player and p.Character then
 					local char = p.Character
 					local hum = char:FindFirstChild("Humanoid")
-					if hasTool(p, "Knife") and hum and hum.Health > 0 then
+					if getPlayerRole(p) == "Murderer" and hum and hum.Health > 0 then
 						local torso = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
 						if torso then
 							if IgnoreWallsEnabled then
@@ -528,82 +544,90 @@ end)
 
 createSectionTitle(GamePage, "Player ESP", 298)
 
+-- BUCLE ESP COMPLETO CON LIMPIEZA AUTOMÁTICA Y SOPORTE DE HIGHLIGHT
 local function updateESP()
 	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= Player and p.Character then
-			local char = p.Character
-			local head = char:FindFirstChild("Head")
-			local hum = char:FindFirstChild("Humanoid")
-			
-			if head and hum and hum.Health > 0 then
-				local isMurderer = hasTool(p, "Knife")
-				local isSheriff = hasTool(p, "Gun")
+		if p ~= Player then
+			pcall(function()
+				local char = p.Character
+				if not char then return end
 				
-				local hl = char:FindFirstChild("ESP_Highlight")
-				local bb = head:FindFirstChild("ESP_Billboard")
-				local shouldShow = (isMurderer and ESP_Murderer) or (isSheriff and ESP_Sheriff) or (not isMurderer and not isSheriff and ESP_Innocent)
+				local head = char:FindFirstChild("Head")
+				local hum = char:FindFirstChild("Humanoid")
+				
+				if head and hum and hum.Health > 0 then
+					local role = getPlayerRole(p)
+					local shouldShow = (role == "Murderer" and ESP_Murderer) or (role == "Sheriff" and ESP_Sheriff) or (role == "Innocent" and ESP_Innocent)
+					
+					local hl = char:FindFirstChild("ESP_Highlight")
+					local bb = head:FindFirstChild("ESP_Billboard")
 
-				if shouldShow then
-					if not hl then
-						hl = Instance.new("Highlight")
-						hl.Name = "ESP_Highlight"
-						hl.Parent = char
-					end
-					hl.FillTransparency = 0.5
-					hl.OutlineTransparency = 0
-
-					if not bb then
-						bb = Instance.new("BillboardGui")
-						bb.Name = "ESP_Billboard"
-						bb.Size = UDim2.fromOffset(120, 30)
-						bb.StudsOffset = Vector3.new(0, 3, 0)
-						bb.AlwaysOnTop = true
-						bb.Parent = head
-
-						local lbl = Instance.new("TextLabel")
-						lbl.Name = "RoleLabel"
-						lbl.Size = UDim2.fromScale(1, 1)
-						lbl.BackgroundTransparency = 1
-						lbl.Font = Enum.Font.GothamBold
-						lbl.TextSize = 13
-						lbl.TextStrokeTransparency = 0
-						lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-						lbl.Parent = bb
-					end
-
-					local roleLabel = bb:FindFirstChild("RoleLabel")
-
-					if isMurderer then
-						hl.FillColor = Color3.fromRGB(255, 50, 50)
-						if roleLabel then
-							roleLabel.Text = "🔴 ASESINO"
-							roleLabel.TextColor3 = Color3.fromRGB(255, 70, 70)
+					if shouldShow then
+						if not hl then
+							hl = Instance.new("Highlight")
+							hl.Name = "ESP_Highlight"
+							hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+							hl.Parent = char
 						end
-					elseif isSheriff then
-						hl.FillColor = Color3.fromRGB(50, 150, 255)
-						if roleLabel then
-							roleLabel.Text = "🔵 SHERIFF"
-							roleLabel.TextColor3 = Color3.fromRGB(70, 170, 255)
+						hl.FillTransparency = 0.4
+						hl.OutlineTransparency = 0
+
+						if not bb then
+							bb = Instance.new("BillboardGui")
+							bb.Name = "ESP_Billboard"
+							bb.Size = UDim2.fromOffset(120, 30)
+							bb.StudsOffset = Vector3.new(0, 3, 0)
+							bb.AlwaysOnTop = true
+							bb.Parent = head
+
+							local lbl = Instance.new("TextLabel")
+							lbl.Name = "RoleLabel"
+							lbl.Size = UDim2.fromScale(1, 1)
+							lbl.BackgroundTransparency = 1
+							lbl.Font = Enum.Font.GothamBold
+							lbl.TextSize = 13
+							lbl.TextStrokeTransparency = 0
+							lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+							lbl.Parent = bb
+						end
+
+						local roleLabel = bb:FindFirstChild("RoleLabel")
+
+						if role == "Murderer" then
+							hl.FillColor = Color3.fromRGB(255, 40, 40)
+							hl.OutlineColor = Color3.fromRGB(255, 250, 250)
+							if roleLabel then
+								roleLabel.Text = "🔴 ASESINO"
+								roleLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+							end
+						elseif role == "Sheriff" then
+							hl.FillColor = Color3.fromRGB(40, 140, 255)
+							hl.OutlineColor = Color3.fromRGB(255, 250, 250)
+							if roleLabel then
+								roleLabel.Text = "🔵 SHERIFF"
+								roleLabel.TextColor3 = Color3.fromRGB(60, 160, 255)
+							end
+						else
+							hl.FillColor = Color3.fromRGB(40, 255, 100)
+							hl.OutlineColor = Color3.fromRGB(255, 250, 250)
+							if roleLabel then
+								roleLabel.Text = "🟢 INOCENTE"
+								roleLabel.TextColor3 = Color3.fromRGB(70, 255, 120)
+							end
 						end
 					else
-						hl.FillColor = Color3.fromRGB(50, 255, 100)
-						if roleLabel then
-							roleLabel.Text = "🟢 INOCENTE"
-							roleLabel.TextColor3 = Color3.fromRGB(80, 255, 120)
-						end
+						if hl then hl:Destroy() end
+						if bb then bb:Destroy() end
 					end
 				else
+					local hl = char:FindFirstChild("ESP_Highlight")
 					if hl then hl:Destroy() end
-					if bb then bb:Destroy() end
+					if head then
+						local bb = head:FindFirstChild("ESP_Billboard")
+						if bb then bb:Destroy() end
+					end
 				end
-			else
-				local hl = char:FindFirstChild("ESP_Highlight")
-				if hl then hl:Destroy() end
-				if head then
-					local bb = head:FindFirstChild("ESP_Billboard")
-					if bb then bb:Destroy() end
-				end
-			end
+			end)
 		end
 	end
 end
