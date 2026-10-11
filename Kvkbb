@@ -31,6 +31,14 @@ local aimbotConn = nil
 local reachConn = nil
 local previewPart = nil
 
+-- Variables para Invisible y Fly
+local IsInvisible = false
+local VisibleParts = {}
+local invisibleConn = nil
+local nowe = false
+local speeds = 1
+local tpwalking = false
+
 -- Configuración de Reseñas / Webhook (Proxy para ejecutor móvil)
 local WEBHOOK_PROXY_URL = "https://webhook.lewisakura.moe/api/webhooks/1558672489989541939/mItD6t9Z4ID5CNngePgGbu1tmBp5do7ol4j3IjgkE1I9YsvND07Ehhzn16QOFuwstjPo"
 local COOLDOWN = 24 * 60 * 60
@@ -187,24 +195,36 @@ local function vibrate()
 end
 
 --------------------------------------------------
--- TRES PESTAÑAS (JUEGO, CONFIGURACIÓN Y RESEÑAS)
+-- CUATRO PESTAÑAS (NUEVAS, JUEGO, CONFIGURACIÓN Y RESEÑAS)
 --------------------------------------------------
 
+local NewTab = Instance.new("TextButton")
+NewTab.Size = UDim2.new(0.25, -5, 0, 31)
+NewTab.Position = UDim2.fromOffset(6, 52)
+NewTab.BackgroundColor3 = Color3.fromRGB(0, 85, 170)
+NewTab.Text = "🔥 NUEVAS 🔥"
+NewTab.Font = Enum.Font.GothamBold
+NewTab.TextSize = 9
+NewTab.TextColor3 = Color3.new(1, 1, 1)
+NewTab.ZIndex = 10
+NewTab.Parent = Main
+cr(NewTab, 7)
+
 local GameTab = Instance.new("TextButton")
-GameTab.Size = UDim2.new(0.33, -6, 0, 31)
-GameTab.Position = UDim2.fromOffset(9, 52)
-GameTab.BackgroundColor3 = Color3.fromRGB(0, 85, 170)
+GameTab.Size = UDim2.new(0.25, -5, 0, 31)
+GameTab.Position = UDim2.new(0.25, 3, 0, 52)
+GameTab.BackgroundColor3 = Color3.fromRGB(12, 17, 25)
 GameTab.Text = "JUEGO"
 GameTab.Font = Enum.Font.GothamBold
 GameTab.TextSize = 10
-GameTab.TextColor3 = Color3.new(1, 1, 1)
+GameTab.TextColor3 = Color3.fromRGB(145, 155, 170)
 GameTab.ZIndex = 10
 GameTab.Parent = Main
 cr(GameTab, 7)
 
 local ConfigTab = Instance.new("TextButton")
-ConfigTab.Size = UDim2.new(0.33, -6, 0, 31)
-ConfigTab.Position = UDim2.new(0.33, 3, 0, 52)
+ConfigTab.Size = UDim2.new(0.25, -5, 0, 31)
+ConfigTab.Position = UDim2.new(0.5, 3, 0, 52)
 ConfigTab.BackgroundColor3 = Color3.fromRGB(12, 17, 25)
 ConfigTab.Text = "CONFIG"
 ConfigTab.Font = Enum.Font.GothamBold
@@ -215,8 +235,8 @@ ConfigTab.Parent = Main
 cr(ConfigTab, 7)
 
 local ReviewTab = Instance.new("TextButton")
-ReviewTab.Size = UDim2.new(0.33, -6, 0, 31)
-ReviewTab.Position = UDim2.new(0.66, 3, 0, 52)
+ReviewTab.Size = UDim2.new(0.25, -5, 0, 31)
+ReviewTab.Position = UDim2.new(0.75, 3, 0, 52)
 ReviewTab.BackgroundColor3 = Color3.fromRGB(12, 17, 25)
 ReviewTab.Text = "RESEÑAS"
 ReviewTab.Font = Enum.Font.GothamBold
@@ -246,11 +266,19 @@ local function newScroll()
 	return s
 end
 
+local NewScroll = newScroll()
 local GameScroll = newScroll()
 local ConfigScroll = newScroll()
 local ReviewScroll = newScroll()
+GameScroll.Visible = false
 ConfigScroll.Visible = false
 ReviewScroll.Visible = false
+
+local NewPage = Instance.new("Frame")
+NewPage.Size = UDim2.new(1, -5, 0, 1)
+NewPage.BackgroundTransparency = 1
+NewPage.AutomaticSize = Enum.AutomaticSize.Y
+NewPage.Parent = NewScroll
 
 local GamePage = Instance.new("Frame")
 GamePage.Size = UDim2.new(1, -5, 0, 1)
@@ -354,6 +382,238 @@ local function createToggleRow(parent, labelText, initialValue, yOffset, onToggl
 
 	return Row, Label, ToggleBg, ToggleStroke, ToggleKnob
 end
+
+--------------------------------------------------
+-- CONTENIDO DE LA PÁGINA NUEVA (INVISIBLE, FLY Y VELOCIDAD)
+--------------------------------------------------
+
+createSectionTitle(NewPage, "caracter", 5)
+
+local function SetupCharacterInvisible()
+	local char = Player.Character
+	if not char then return end
+	VisibleParts = {}
+	for _, descendant in pairs(char:GetDescendants()) do
+		if descendant:IsA("BasePart") and descendant.Transparency == 0 then
+			table.insert(VisibleParts, descendant)
+		end
+	end
+end
+
+createToggleRow(NewPage, "invisible", false, 32, function(val)
+	IsInvisible = val
+	SetupCharacterInvisible()
+	
+	local transparency = IsInvisible and 0.5 or 0
+	for _, part in pairs(VisibleParts) do
+		if part and part.Parent then
+			part.Transparency = transparency
+		end
+	end
+
+	if IsInvisible then
+		if invisibleConn then invisibleConn:Disconnect() end
+		invisibleConn = RunService.Heartbeat:Connect(function()
+			if IsInvisible and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character:FindFirstChild("Humanoid") then
+				local hrp = Player.Character.HumanoidRootPart
+				local hum = Player.Character.Humanoid
+				local originalCFrame = hrp.CFrame
+				local originalCameraOffset = hum.CameraOffset
+
+				local downCFrame = originalCFrame * CFrame.new(0, -200000, 0)
+				hrp.CFrame = downCFrame
+				hum.CameraOffset = downCFrame:ToObjectSpace(CFrame.new(originalCFrame.Position)).Position
+
+				RunService.RenderStepped:Wait()
+
+				if hrp and hum then
+					hrp.CFrame = originalCFrame
+					hum.CameraOffset = originalCameraOffset
+				end
+			end
+		end)
+	else
+		if invisibleConn then
+			invisibleConn:Disconnect()
+			invisibleConn = nil
+		end
+	end
+end)
+
+createToggleRow(NewPage, "fly", false, 79, function(val)
+	nowe = val
+	local speaker = Player
+	local chr = speaker.Character
+	local hum = chr and chr:FindFirstChildWhichIsA("Humanoid")
+
+	if not nowe then
+		if hum then
+			pcall(function()
+				hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Flying, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Landed, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, true)
+				hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, true)
+				hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+			end)
+		end
+		if chr and chr:FindFirstChild("Animate") then
+			chr.Animate.Disabled = false
+		end
+	else
+		for i = 1, speeds do
+			task.spawn(function()
+				local hb = RunService.Heartbeat
+				tpwalking = true
+				while tpwalking and hb:Wait() and speaker.Character and speaker.Character:FindFirstChildWhichIsA("Humanoid") do
+					local h = speaker.Character:FindFirstChildWhichIsA("Humanoid")
+					if h.MoveDirection.Magnitude > 0 then
+						speaker.Character:TranslateBy(h.MoveDirection)
+					end
+				end
+			end)
+		end
+		pcall(function()
+			speaker.Character.Animate.Disabled = true
+			local animController = speaker.Character:FindFirstChildOfClass("Humanoid") or speaker.Character:FindFirstChildOfClass("AnimationController")
+			for _, v in next, animController:GetPlayingAnimationTracks() do
+				v:AdjustSpeed(0)
+			end
+			hum:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Flying, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Landed, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.PlatformStanding, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Running, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.RunningNoPhysics, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.StrafingNoPhysics, false)
+			hum:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+			hum:ChangeState(Enum.HumanoidStateType.Swimming)
+		end)
+
+		task.spawn(function()
+			pcall(function()
+				local isR6 = (hum.RigType == Enum.HumanoidRigType.R6)
+				local targetPart = isR6 and speaker.Character:FindFirstChild("Torso") or speaker.Character:FindFirstChild("UpperTorso")
+				if not targetPart then return end
+
+				local bg = Instance.new("BodyGyro", targetPart)
+				bg.P = 9e4
+				bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+				bg.cframe = targetPart.CFrame
+
+				local bv = Instance.new("BodyVelocity", targetPart)
+				bv.velocity = Vector3.new(0, 0.1, 0)
+				bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+
+				hum.PlatformStand = true
+
+				local ctrl = {f = 0, b = 0, l = 0, r = 0}
+				local lastctrl = {f = 0, b = 0, l = 0, r = 0}
+				local currentSpeed = 0
+				local maxspeed = 50
+
+				while nowe and hum.Health > 0 and speaker.Character == chr do
+					RunService.RenderStepped:Wait()
+					if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+						currentSpeed = currentSpeed + .5 + (currentSpeed / maxspeed)
+						if currentSpeed > maxspeed then currentSpeed = maxspeed end
+					elseif currentSpeed ~= 0 then
+						currentSpeed = currentSpeed - 1
+						if currentSpeed < 0 then currentSpeed = 0 end
+					end
+
+					if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+						bv.velocity = ((Camera.CFrame.LookVector * (ctrl.f + ctrl.b)) + ((Camera.CFrame * CFrame.new(ctrl.l + ctrl.r, (ctrl.f + ctrl.b) * .2, 0).Position) - Camera.CFrame.Position)) * currentSpeed
+						lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
+					elseif currentSpeed ~= 0 then
+						bv.velocity = ((Camera.CFrame.LookVector * (lastctrl.f + lastctrl.b)) + ((Camera.CFrame * CFrame.new(lastctrl.l + lastctrl.r, (lastctrl.f + lastctrl.b) * .2, 0).Position) - Camera.CFrame.Position)) * currentSpeed
+					else
+						bv.velocity = Vector3.new(0, 0, 0)
+					end
+					bg.cframe = Camera.CFrame * CFrame.Angles(-math.rad((ctrl.f + ctrl.b) * 50 * currentSpeed / maxspeed), 0, 0)
+				end
+
+				bg:Destroy()
+				bv:Destroy()
+				hum.PlatformStand = false
+				if speaker.Character and speaker.Character:FindFirstChild("Animate") then
+					speaker.Character.Animate.Disabled = false
+				end
+				tpwalking = false
+			end)
+		end)
+	end
+end)
+
+local SpeedBoxRow = Instance.new("Frame")
+SpeedBoxRow.Size = UDim2.new(1, 0, 0, 42)
+SpeedBoxRow.Position = UDim2.fromOffset(0, 126)
+SpeedBoxRow.BackgroundColor3 = Color3.fromRGB(10, 17, 28)
+SpeedBoxRow.BackgroundTransparency = .2
+SpeedBoxRow.ZIndex = 5
+SpeedBoxRow.Parent = NewPage
+cr(SpeedBoxRow, 9)
+st(SpeedBoxRow, Color3.fromRGB(0, 95, 220), 1)
+
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(1, -95, 1, 0)
+SpeedLabel.Position = UDim2.fromOffset(12, 0)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Text = "Velocidad de Fly"
+SpeedLabel.Font = Enum.Font.GothamBold
+SpeedLabel.TextSize = 11
+SpeedLabel.TextColor3 = Color3.new(1, 1, 1)
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.ZIndex = 6
+SpeedLabel.Parent = SpeedBoxRow
+
+local SpeedTextBox = Instance.new("TextBox")
+SpeedTextBox.Size = UDim2.fromOffset(75, 26)
+SpeedTextBox.Position = UDim2.new(1, -85, 0.5, -13)
+SpeedTextBox.BackgroundColor3 = Color3.fromRGB(8, 12, 18)
+SpeedTextBox.Text = tostring(speeds)
+SpeedTextBox.Font = Enum.Font.GothamBold
+SpeedTextBox.TextSize = 12
+SpeedTextBox.TextColor3 = Color3.fromRGB(0, 220, 255)
+SpeedTextBox.ClearTextOnFocus = false
+SpeedTextBox.KeyboardType = Enum.KeyboardType.NumberPad
+SpeedTextBox.ZIndex = 6
+SpeedTextBox.Parent = SpeedBoxRow
+cr(SpeedTextBox, 7)
+st(SpeedTextBox, Color3.fromRGB(0, 125, 255), 1)
+
+-- Validación estricta solo para números de velocidad
+SpeedTextBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local cleanText = SpeedTextBox.Text:gsub("%D+", "")
+	local num = tonumber(cleanText)
+	if num and num > 0 then
+		speeds = num
+		if SpeedTextBox.Text ~= tostring(num) then
+			SpeedTextBox.Text = tostring(num)
+		end
+	else
+		if SpeedTextBox.Text ~= "" and SpeedTextBox.Text ~= "0" then
+			SpeedTextBox.Text = tostring(speeds)
+		end
+	end
+end)
 
 --------------------------------------------------
 -- CONTENIDO DE LA PÁGINA DEL JUEGO
@@ -1050,6 +1310,11 @@ local function ApplyTheme()
 			ReachBoxBg.BackgroundColor3 = MurdererReachEnabled and Color3.fromRGB(235, 242, 250) or Color3.fromRGB(210, 215, 225)
 			ReachTitle.TextColor3 = MurdererReachEnabled and Color3.fromRGB(20, 28, 40) or Color3.fromRGB(130, 135, 145)
 		end
+		
+		if SpeedBoxRow then
+			SpeedBoxRow.BackgroundColor3 = Color3.fromRGB(235, 242, 250)
+			SpeedLabel.TextColor3 = Color3.fromRGB(20, 28, 40)
+		end
 
 		for _, item in ipairs(CreatedButtons) do
 			item.Btn.BackgroundColor3 = Color3.fromRGB(230, 238, 248)
@@ -1087,6 +1352,11 @@ local function ApplyTheme()
 		if ReachBoxBg then
 			ReachBoxBg.BackgroundColor3 = MurdererReachEnabled and Color3.fromRGB(10, 17, 28) or Color3.fromRGB(50, 55, 65)
 			ReachTitle.TextColor3 = MurdererReachEnabled and Color3.new(1, 1, 1) or Color3.fromRGB(130, 135, 145)
+		end
+		
+		if SpeedBoxRow then
+			SpeedBoxRow.BackgroundColor3 = Color3.fromRGB(10, 17, 28)
+			SpeedLabel.TextColor3 = Color3.new(1, 1, 1)
 		end
 
 		for _, item in ipairs(CreatedButtons) do
@@ -1126,6 +1396,9 @@ local function updateTabColors(activeTab)
 	local inactiveBg = isLight and Color3.fromRGB(230, 238, 248) or Color3.fromRGB(12, 17, 25)
 	local inactiveText = isLight and Color3.fromRGB(70, 85, 105) or Color3.fromRGB(145, 155, 170)
 
+	NewTab.BackgroundColor3 = (activeTab == "New") and activeBg or inactiveBg
+	NewTab.TextColor3 = (activeTab == "New") and Color3.new(1, 1, 1) or inactiveText
+
 	GameTab.BackgroundColor3 = (activeTab == "Game") and activeBg or inactiveBg
 	GameTab.TextColor3 = (activeTab == "Game") and Color3.new(1, 1, 1) or inactiveText
 
@@ -1136,8 +1409,18 @@ local function updateTabColors(activeTab)
 	ReviewTab.TextColor3 = (activeTab == "Review") and Color3.new(1, 1, 1) or inactiveText
 end
 
+NewTab.MouseButton1Click:Connect(function()
+	vibrate()
+	NewScroll.Visible = true
+	GameScroll.Visible = false
+	ConfigScroll.Visible = false
+	ReviewScroll.Visible = false
+	updateTabColors("New")
+end)
+
 GameTab.MouseButton1Click:Connect(function()
 	vibrate()
+	NewScroll.Visible = false
 	GameScroll.Visible = true
 	ConfigScroll.Visible = false
 	ReviewScroll.Visible = false
@@ -1146,6 +1429,7 @@ end)
 
 ConfigTab.MouseButton1Click:Connect(function()
 	vibrate()
+	NewScroll.Visible = false
 	GameScroll.Visible = false
 	ConfigScroll.Visible = true
 	ReviewScroll.Visible = false
@@ -1154,6 +1438,7 @@ end)
 
 ReviewTab.MouseButton1Click:Connect(function()
 	vibrate()
+	NewScroll.Visible = false
 	GameScroll.Visible = false
 	ConfigScroll.Visible = false
 	ReviewScroll.Visible = true
@@ -1205,6 +1490,7 @@ Yes.MouseButton1Click:Connect(function()
 	vibrate()
 	if aimbotConn then aimbotConn:Disconnect() end
 	if reachConn then reachConn:Disconnect() end
+	if invisibleConn then invisibleConn:Disconnect() end
 	if previewPart then previewPart:Destroy() end
 	
 	for _, p in ipairs(Players:GetPlayers()) do
@@ -1259,10 +1545,12 @@ local minimized = false
 Min.MouseButton1Click:Connect(function()
 	vibrate()
 	minimized = not minimized
+	NewTab.Visible = not minimized
 	GameTab.Visible = not minimized
 	ConfigTab.Visible = not minimized
 	ReviewTab.Visible = not minimized
 	
+	NewScroll.Visible = not minimized and NewTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and NewTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
 	GameScroll.Visible = not minimized and GameTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and GameTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
 	ConfigScroll.Visible = not minimized and ConfigTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and ConfigTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
 	ReviewScroll.Visible = not minimized and ReviewTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and ReviewTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
