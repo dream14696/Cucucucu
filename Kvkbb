@@ -1,6 +1,3 @@
---[[
-	ADVERTENCIA: ¡Atención! Este script no ha sido verificado por ScriptBlox. ¡Úselo bajo su propia responsabilidad!
-]]
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -366,6 +363,16 @@ end
 -- CONTENIDO DE LA PÁGINA DEL JUEGO
 --------------------------------------------------
 
+-- Función auxiliar para verificar si un jugador tiene un objeto en mochila o personaje
+local function hasTool(player, toolName)
+	if not player then return false end
+	local char = player.Character
+	local bp = player:FindFirstChild("Backpack")
+	if char and char:FindFirstChild(toolName) then return true end
+	if bp and bp:FindFirstChild(toolName) then return true end
+	return false
+end
+
 createSectionTitle(GamePage, "Sheriff", 5)
 
 createToggleRow(GamePage, "Activar Aimbot (Torso)", SheriffAimbotEnabled, 32, function(val)
@@ -377,9 +384,8 @@ createToggleRow(GamePage, "Activar Aimbot (Torso)", SheriffAimbotEnabled, 32, fu
 			for _, p in ipairs(Players:GetPlayers()) do
 				if p ~= Player and p.Character then
 					local char = p.Character
-					local bp = p:FindFirstChild("Backpack")
 					local hum = char:FindFirstChild("Humanoid")
-					if (char:FindFirstChild("Knife") or (bp and bp:FindFirstChild("Knife"))) and hum and hum.Health > 0 then
+					if hasTool(p, "Knife") and hum and hum.Health > 0 then
 						local torso = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
 						if torso then
 							if IgnoreWallsEnabled then
@@ -527,71 +533,82 @@ end)
 
 createSectionTitle(GamePage, "Player ESP", 298)
 
+-- DETECTOR MEJORADO DE ROLES Y ESP DEDICADO
 local function updateESP()
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p ~= Player and p.Character then
 			local char = p.Character
 			local head = char:FindFirstChild("Head")
-			local bp = p:FindFirstChild("Backpack")
-			local isMurderer = char:FindFirstChild("Knife") ~= nil or (bp and bp:FindFirstChild("Knife") ~= nil)
-			local isSheriff = char:FindFirstChild("Gun") ~= nil or (bp and bp:FindFirstChild("Gun") ~= nil)
+			local hum = char:FindFirstChild("Humanoid")
 			
-			local hl = char:FindFirstChild("ESP_Highlight")
-			local bb = head and head:FindFirstChild("ESP_Billboard")
-			local shouldShow = (isMurderer and ESP_Murderer) or (isSheriff and ESP_Sheriff) or (not isMurderer and not isSheriff and ESP_Innocent)
+			if head and hum and hum.Health > 0 then
+				local isMurderer = hasTool(p, "Knife")
+				local isSheriff = hasTool(p, "Gun")
+				
+				local hl = char:FindFirstChild("ESP_Highlight")
+				local bb = head:FindFirstChild("ESP_Billboard")
+				local shouldShow = (isMurderer and ESP_Murderer) or (isSheriff and ESP_Sheriff) or (not isMurderer and not isSheriff and ESP_Innocent)
 
-			if shouldShow then
-				if not hl then
-					hl = Instance.new("Highlight")
-					hl.Name = "ESP_Highlight"
-					hl.Parent = char
-				end
-				hl.FillTransparency = 0.5
-				hl.OutlineTransparency = 0
-
-				if head and not bb then
-					bb = Instance.new("BillboardGui")
-					bb.Name = "ESP_Billboard"
-					bb.Size = UDim2.fromOffset(120, 30)
-					bb.StudsOffset = Vector3.new(0, 3, 0)
-					bb.AlwaysOnTop = true
-					bb.Parent = head
-
-					local lbl = Instance.new("TextLabel")
-					lbl.Name = "RoleLabel"
-					lbl.Size = UDim2.fromScale(1, 1)
-					lbl.BackgroundTransparency = 1
-					lbl.Font = Enum.Font.GothamBold
-					lbl.TextSize = 13
-					lbl.TextStrokeTransparency = 0
-					lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-					lbl.Parent = bb
-				end
-
-				local roleLabel = bb and bb:FindFirstChild("RoleLabel")
-
-				if isMurderer then
-					hl.FillColor = Color3.fromRGB(255, 50, 50)
-					if roleLabel then
-						roleLabel.Text = "🔴 ASESINO"
-						roleLabel.TextColor3 = Color3.fromRGB(255, 70, 70)
+				if shouldShow then
+					if not hl then
+						hl = Instance.new("Highlight")
+						hl.Name = "ESP_Highlight"
+						hl.Parent = char
 					end
-				elseif isSheriff then
-					hl.FillColor = Color3.fromRGB(50, 150, 255)
-					if roleLabel then
-						roleLabel.Text = "🔵 SHERIFF"
-						roleLabel.TextColor3 = Color3.fromRGB(70, 170, 255)
+					hl.FillTransparency = 0.5
+					hl.OutlineTransparency = 0
+
+					if not bb then
+						bb = Instance.new("BillboardGui")
+						bb.Name = "ESP_Billboard"
+						bb.Size = UDim2.fromOffset(120, 30)
+						bb.StudsOffset = Vector3.new(0, 3, 0)
+						bb.AlwaysOnTop = true
+						bb.Parent = head
+
+						local lbl = Instance.new("TextLabel")
+						lbl.Name = "RoleLabel"
+						lbl.Size = UDim2.fromScale(1, 1)
+						lbl.BackgroundTransparency = 1
+						lbl.Font = Enum.Font.GothamBold
+						lbl.TextSize = 13
+						lbl.TextStrokeTransparency = 0
+						lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+						lbl.Parent = bb
+					end
+
+					local roleLabel = bb:FindFirstChild("RoleLabel")
+
+					if isMurderer then
+						hl.FillColor = Color3.fromRGB(255, 50, 50)
+						if roleLabel then
+							roleLabel.Text = "🔴 ASESINO"
+							roleLabel.TextColor3 = Color3.fromRGB(255, 70, 70)
+						end
+					elseif isSheriff then
+						hl.FillColor = Color3.fromRGB(50, 150, 255)
+						if roleLabel then
+							roleLabel.Text = "🔵 SHERIFF"
+							roleLabel.TextColor3 = Color3.fromRGB(70, 170, 255)
+						end
+					else
+						hl.FillColor = Color3.fromRGB(50, 255, 100)
+						if roleLabel then
+							roleLabel.Text = "🟢 INOCENTE"
+							roleLabel.TextColor3 = Color3.fromRGB(80, 255, 120)
+						end
 					end
 				else
-					hl.FillColor = Color3.fromRGB(50, 255, 100)
-					if roleLabel then
-						roleLabel.Text = "🟢 INOCENTE"
-						roleLabel.TextColor3 = Color3.fromRGB(80, 255, 120)
-					end
+					if hl then hl:Destroy() end
+					if bb then bb:Destroy() end
 				end
 			else
+				local hl = char:FindFirstChild("ESP_Highlight")
 				if hl then hl:Destroy() end
-				if bb then bb:Destroy() end
+				if head then
+					local bb = head:FindFirstChild("ESP_Billboard")
+					if bb then bb:Destroy() end
+				end
 			end
 		end
 	end
@@ -1189,7 +1206,7 @@ end)
 
 local dragging, dragStart, startPos
 Top.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.MouseButton1 then
 		dragging = true
 		dragStart = input.Position
 		startPos = Main.Position
