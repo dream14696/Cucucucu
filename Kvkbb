@@ -16,8 +16,6 @@ local Animations = true
 local Theme = "Oscuro"
 
 -- Variables Funcionales
-local FlyEnabled = false
-local FlySpeed = 50
 local SheriffAimbotEnabled = false
 local IgnoreWallsEnabled = false
 local MurdererReachEnabled = false
@@ -32,11 +30,6 @@ local FullFPS_Enabled = false
 local aimbotConn = nil
 local reachConn = nil
 local previewPart = nil
-local flyConn = nil
-local flyBodyVel = nil
-local flyBodyGyro = nil
-local moveUp = false
-local moveDown = false
 
 -- Configuración de Reseñas / Webhook (Proxy para ejecutor móvil)
 local WEBHOOK_PROXY_URL = "https://webhook.lewisakura.moe/api/webhooks/1558672489989541939/mItD6t9Z4ID5CNngePgGbu1tmBp5do7ol4j3IjgkE1I9YsvND07Ehhzn16QOFuwstjPo"
@@ -194,59 +187,47 @@ local function vibrate()
 end
 
 --------------------------------------------------
--- NAVEGACIÓN DE 4 PESTAÑAS
+-- TRES PESTAÑAS (JUEGO, CONFIGURACIÓN Y RESEÑAS)
 --------------------------------------------------
 
-local NewTab = Instance.new("TextButton")
-NewTab.Size = UDim2.new(0.25, -5, 0, 31)
-NewTab.Position = UDim2.fromOffset(6, 52)
-NewTab.BackgroundColor3 = Color3.fromRGB(0, 85, 170)
-NewTab.Text = "🔥 NUEVO 🔥"
-NewTab.Font = Enum.Font.GothamBold
-NewTab.TextSize = 9
-NewTab.TextColor3 = Color3.new(1, 1, 1)
-NewTab.ZIndex = 10
-NewTab.Parent = Main
-cr(NewTab, 7)
-
 local GameTab = Instance.new("TextButton")
-GameTab.Size = UDim2.new(0.25, -5, 0, 31)
-GameTab.Position = UDim2.new(0.25, 3, 0, 52)
-GameTab.BackgroundColor3 = Color3.fromRGB(12, 17, 25)
+GameTab.Size = UDim2.new(0.33, -6, 0, 31)
+GameTab.Position = UDim2.fromOffset(9, 52)
+GameTab.BackgroundColor3 = Color3.fromRGB(0, 85, 170)
 GameTab.Text = "JUEGO"
 GameTab.Font = Enum.Font.GothamBold
-GameTab.TextSize = 9
-GameTab.TextColor3 = Color3.fromRGB(145, 155, 170)
+GameTab.TextSize = 10
+GameTab.TextColor3 = Color3.new(1, 1, 1)
 GameTab.ZIndex = 10
 GameTab.Parent = Main
 cr(GameTab, 7)
 
 local ConfigTab = Instance.new("TextButton")
-ConfigTab.Size = UDim2.new(0.25, -5, 0, 31)
-ConfigTab.Position = UDim2.new(0.50, 3, 0, 52)
+ConfigTab.Size = UDim2.new(0.33, -6, 0, 31)
+ConfigTab.Position = UDim2.new(0.33, 3, 0, 52)
 ConfigTab.BackgroundColor3 = Color3.fromRGB(12, 17, 25)
 ConfigTab.Text = "CONFIG"
 ConfigTab.Font = Enum.Font.GothamBold
-ConfigTab.TextSize = 9
+ConfigTab.TextSize = 10
 ConfigTab.TextColor3 = Color3.fromRGB(145, 155, 170)
 ConfigTab.ZIndex = 10
 ConfigTab.Parent = Main
 cr(ConfigTab, 7)
 
 local ReviewTab = Instance.new("TextButton")
-ReviewTab.Size = UDim2.new(0.25, -5, 0, 31)
-ReviewTab.Position = UDim2.new(0.75, 3, 0, 52)
+ReviewTab.Size = UDim2.new(0.33, -6, 0, 31)
+ReviewTab.Position = UDim2.new(0.66, 3, 0, 52)
 ReviewTab.BackgroundColor3 = Color3.fromRGB(12, 17, 25)
 ReviewTab.Text = "RESEÑAS"
 ReviewTab.Font = Enum.Font.GothamBold
-ReviewTab.TextSize = 9
+ReviewTab.TextSize = 10
 ReviewTab.TextColor3 = Color3.fromRGB(145, 155, 170)
 ReviewTab.ZIndex = 10
 ReviewTab.Parent = Main
 cr(ReviewTab, 7)
 
 --------------------------------------------------
--- CONTENEDORES
+-- PERGAMINOS Y CONTENEDORES
 --------------------------------------------------
 
 local function newScroll()
@@ -265,20 +246,11 @@ local function newScroll()
 	return s
 end
 
-local NewScroll = newScroll()
 local GameScroll = newScroll()
 local ConfigScroll = newScroll()
 local ReviewScroll = newScroll()
-
-GameScroll.Visible = false
 ConfigScroll.Visible = false
 ReviewScroll.Visible = false
-
-local NewPage = Instance.new("Frame")
-NewPage.Size = UDim2.new(1, -5, 0, 1)
-NewPage.BackgroundTransparency = 1
-NewPage.AutomaticSize = Enum.AutomaticSize.Y
-NewPage.Parent = NewScroll
 
 local GamePage = Instance.new("Frame")
 GamePage.Size = UDim2.new(1, -5, 0, 1)
@@ -384,211 +356,13 @@ local function createToggleRow(parent, labelText, initialValue, yOffset, onToggl
 end
 
 --------------------------------------------------
--- CONTROLES MÓVILES DE ALTURA PARA FLY
---------------------------------------------------
-
-local MobileControls = Instance.new("Frame")
-MobileControls.Name = "FlyMobileControls"
-MobileControls.Size = UDim2.fromOffset(60, 130)
-MobileControls.Position = UDim2.new(1, -75, 0.5, -65)
-MobileControls.BackgroundTransparency = 1
-MobileControls.Visible = false
-MobileControls.Parent = GUI
-
-local UpBtn = Instance.new("TextButton")
-UpBtn.Size = UDim2.fromOffset(55, 55)
-UpBtn.Position = UDim2.fromOffset(0, 0)
-UpBtn.BackgroundColor3 = Color3.fromRGB(10, 20, 35)
-UpBtn.Text = "▲"
-UpBtn.Font = Enum.Font.GothamBold
-UpBtn.TextSize = 22
-UpBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
-UpBtn.ZIndex = 200
-UpBtn.Parent = MobileControls
-cr(UpBtn, 28)
-st(UpBtn, Color3.fromRGB(0, 125, 255), 2)
-
-local DownBtn = Instance.new("TextButton")
-DownBtn.Size = UDim2.fromOffset(55, 55)
-DownBtn.Position = UDim2.fromOffset(0, 65)
-DownBtn.BackgroundColor3 = Color3.fromRGB(10, 20, 35)
-DownBtn.Text = "▼"
-DownBtn.Font = Enum.Font.GothamBold
-DownBtn.TextSize = 22
-DownBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
-DownBtn.ZIndex = 200
-DownBtn.Parent = MobileControls
-cr(DownBtn, 28)
-st(DownBtn, Color3.fromRGB(0, 125, 255), 2)
-
-UpBtn.MouseButton1Down:Connect(function() moveUp = true end)
-UpBtn.MouseButton1Up:Connect(function() moveUp = false end)
-UpBtn.TouchLongPress:Connect(function() moveUp = true end)
-UpBtn.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.MouseButton1 then moveUp = false end end)
-
-DownBtn.MouseButton1Down:Connect(function() moveDown = true end)
-DownBtn.MouseButton1Up:Connect(function() moveDown = false end)
-DownBtn.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.MouseButton1 then moveDown = false end end)
-
---------------------------------------------------
--- LÓGICA DEL FLY UNIVERSAL (PC & MÓVIL)
---------------------------------------------------
-
-local function startFly()
-	local char = Player.Character
-	if not char then return end
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	local hum = char:FindFirstChild("Humanoid")
-	if not hrp or not hum then return end
-
-	hum.PlatformStand = true
-
-	flyBodyVel = Instance.new("BodyVelocity")
-	flyBodyVel.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-	flyBodyVel.Velocity = Vector3.zero
-	flyBodyVel.Parent = hrp
-
-	flyBodyGyro = Instance.new("BodyGyro")
-	flyBodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-	flyBodyGyro.CFrame = hrp.CFrame
-	flyBodyGyro.Parent = hrp
-
-	if UserInputService.TouchEnabled then
-		MobileControls.Visible = true
-	end
-
-	flyConn = RunService.RenderStepped:Connect(function()
-		if not FlyEnabled or not hrp or not hum then return end
-
-		local moveDir = hum.MoveDirection
-		local vel = moveDir * FlySpeed
-
-		local vertical = 0
-		if moveUp or UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-			vertical = FlySpeed
-		elseif moveDown or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-			vertical = -FlySpeed
-		end
-
-		flyBodyVel.Velocity = Vector3.new(vel.X, vertical, vel.Z)
-		flyBodyGyro.CFrame = Camera.CFrame
-	end)
-end
-
-local function stopFly()
-	if flyConn then flyConn:Disconnect() flyConn = nil end
-	if flyBodyVel then flyBodyVel:Destroy() flyBodyVel = nil end
-	if flyBodyGyro then flyBodyGyro:Destroy() flyBodyGyro = nil end
-	
-	MobileControls.Visible = false
-	moveUp = false
-	moveDown = false
-
-	if Player.Character then
-		local hum = Player.Character:FindFirstChild("Humanoid")
-		if hum then hum.PlatformStand = false end
-	end
-end
-
---------------------------------------------------
--- CONTENIDO DE LA PESTAÑA 🔥 NUEVAS FUNCIONES 🔥
---------------------------------------------------
-
-createSectionTitle(NewPage, "🔥 NUEVAS FUNCIONES 🔥", 5)
-
-createToggleRow(NewPage, "Activar Fly", FlyEnabled, 32, function(val)
-	FlyEnabled = val
-	if val then
-		startFly()
-	else
-		stopFly()
-	end
-end)
-
--- SECCIÓN APLICAR VELOCIDAD
-local SpeedTitle = Instance.new("TextLabel")
-SpeedTitle.Size = UDim2.new(1, 0, 0, 20)
-SpeedTitle.Position = UDim2.fromOffset(0, 80)
-SpeedTitle.BackgroundTransparency = 1
-SpeedTitle.Text = "Aplicar velocidad"
-SpeedTitle.Font = Enum.Font.GothamBold
-SpeedTitle.TextSize = 11
-SpeedTitle.TextColor3 = Color3.fromRGB(0, 170, 255)
-SpeedTitle.TextXAlignment = Enum.TextXAlignment.Center
-SpeedTitle.Parent = NewPage
-
-local SpeedBoxContainer = Instance.new("Frame")
-SpeedBoxContainer.Size = UDim2.new(1, 0, 0, 42)
-SpeedBoxContainer.Position = UDim2.fromOffset(0, 105)
-SpeedBoxContainer.BackgroundColor3 = Color3.fromRGB(10, 17, 28)
-SpeedBoxContainer.BackgroundTransparency = .2
-SpeedBoxContainer.Parent = NewPage
-cr(SpeedBoxContainer, 9)
-st(SpeedBoxContainer, Color3.fromRGB(0, 95, 220), 1)
-
-local MinusBtn = Instance.new("TextButton")
-MinusBtn.Size = UDim2.fromOffset(36, 30)
-MinusBtn.Position = UDim2.fromOffset(8, 6)
-MinusBtn.BackgroundColor3 = Color3.fromRGB(15, 25, 40)
-MinusBtn.Text = "<"
-MinusBtn.Font = Enum.Font.GothamBold
-MinusBtn.TextSize = 14
-MinusBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
-MinusBtn.Parent = SpeedBoxContainer
-cr(MinusBtn, 7)
-st(MinusBtn, Color3.fromRGB(0, 125, 255), 1)
-
-local SpeedTextBox = Instance.new("TextBox")
-SpeedTextBox.Size = UDim2.new(1, -96, 0, 30)
-SpeedTextBox.Position = UDim2.fromOffset(48, 6)
-SpeedTextBox.BackgroundColor3 = Color3.fromRGB(6, 10, 16)
-SpeedTextBox.Text = tostring(FlySpeed)
-SpeedTextBox.Font = Enum.Font.GothamBold
-SpeedTextBox.TextSize = 12
-SpeedTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedTextBox.KeyboardType = Enum.KeyboardType.Number
-SpeedTextBox.ClearTextOnFocus = false
-SpeedTextBox.Parent = SpeedBoxContainer
-cr(SpeedTextBox, 7)
-st(SpeedTextBox, Color3.fromRGB(0, 125, 255), 1)
-
-local PlusBtn = Instance.new("TextButton")
-PlusBtn.Size = UDim2.fromOffset(36, 30)
-PlusBtn.Position = UDim2.new(1, -44, 0, 6)
-PlusBtn.BackgroundColor3 = Color3.fromRGB(15, 25, 40)
-PlusBtn.Text = ">"
-PlusBtn.Font = Enum.Font.GothamBold
-PlusBtn.TextSize = 14
-PlusBtn.TextColor3 = Color3.fromRGB(0, 200, 255)
-PlusBtn.Parent = SpeedBoxContainer
-cr(PlusBtn, 7)
-st(PlusBtn, Color3.fromRGB(0, 125, 255), 1)
-
-MinusBtn.MouseButton1Click:Connect(function()
-	vibrate()
-	FlySpeed = math.max(1, FlySpeed - 1)
-	SpeedTextBox.Text = tostring(FlySpeed)
-end)
-
-PlusBtn.MouseButton1Click:Connect(function()
-	vibrate()
-	FlySpeed = FlySpeed + 1
-	SpeedTextBox.Text = tostring(FlySpeed)
-end)
-
-SpeedTextBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local num = tonumber(SpeedTextBox.Text)
-	if num then
-		FlySpeed = math.max(1, num)
-	end
-end)
-
---------------------------------------------------
 -- CONTENIDO DE LA PÁGINA DEL JUEGO
 --------------------------------------------------
 
+-- Detector avanzado de herramientas para MM2
 local function getPlayerRole(player)
 	if not player then return "Innocent" end
+	
 	local char = player.Character
 	local bp = player:FindFirstChild("Backpack")
 	
@@ -704,7 +478,6 @@ ReachTextBox.Font = Enum.Font.GothamBold
 ReachTextBox.TextSize = 11
 ReachTextBox.TextColor3 = Color3.fromRGB(130, 135, 145)
 ReachTextBox.TextEditable = false
-ReachTextBox.KeyboardType = Enum.KeyboardType.Number
 ReachTextBox.ZIndex = 6
 ReachTextBox.Parent = ReachBoxBg
 cr(ReachTextBox, 7)
@@ -771,6 +544,7 @@ end)
 
 createSectionTitle(GamePage, "Player ESP", 298)
 
+-- BUCLE ESP COMPLETO CON LIMPIEZA AUTOMÁTICA Y SOPORTE DE HIGHLIGHT
 local function updateESP()
 	for _, p in ipairs(Players:GetPlayers()) do
 		if p ~= Player then
@@ -1352,9 +1126,6 @@ local function updateTabColors(activeTab)
 	local inactiveBg = isLight and Color3.fromRGB(230, 238, 248) or Color3.fromRGB(12, 17, 25)
 	local inactiveText = isLight and Color3.fromRGB(70, 85, 105) or Color3.fromRGB(145, 155, 170)
 
-	NewTab.BackgroundColor3 = (activeTab == "New") and activeBg or inactiveBg
-	NewTab.TextColor3 = (activeTab == "New") and Color3.new(1, 1, 1) or inactiveText
-
 	GameTab.BackgroundColor3 = (activeTab == "Game") and activeBg or inactiveBg
 	GameTab.TextColor3 = (activeTab == "Game") and Color3.new(1, 1, 1) or inactiveText
 
@@ -1365,18 +1136,8 @@ local function updateTabColors(activeTab)
 	ReviewTab.TextColor3 = (activeTab == "Review") and Color3.new(1, 1, 1) or inactiveText
 end
 
-NewTab.MouseButton1Click:Connect(function()
-	vibrate()
-	NewScroll.Visible = true
-	GameScroll.Visible = false
-	ConfigScroll.Visible = false
-	ReviewScroll.Visible = false
-	updateTabColors("New")
-end)
-
 GameTab.MouseButton1Click:Connect(function()
 	vibrate()
-	NewScroll.Visible = false
 	GameScroll.Visible = true
 	ConfigScroll.Visible = false
 	ReviewScroll.Visible = false
@@ -1385,7 +1146,6 @@ end)
 
 ConfigTab.MouseButton1Click:Connect(function()
 	vibrate()
-	NewScroll.Visible = false
 	GameScroll.Visible = false
 	ConfigScroll.Visible = true
 	ReviewScroll.Visible = false
@@ -1394,7 +1154,6 @@ end)
 
 ReviewTab.MouseButton1Click:Connect(function()
 	vibrate()
-	NewScroll.Visible = false
 	GameScroll.Visible = false
 	ConfigScroll.Visible = false
 	ReviewScroll.Visible = true
@@ -1444,7 +1203,6 @@ Exit.MouseButton1Click:Connect(function() vibrate() Confirm.Visible = true end)
 No.MouseButton1Click:Connect(function() vibrate() Confirm.Visible = false end)
 Yes.MouseButton1Click:Connect(function()
 	vibrate()
-	stopFly()
 	if aimbotConn then aimbotConn:Disconnect() end
 	if reachConn then reachConn:Disconnect() end
 	if previewPart then previewPart:Destroy() end
@@ -1501,12 +1259,10 @@ local minimized = false
 Min.MouseButton1Click:Connect(function()
 	vibrate()
 	minimized = not minimized
-	NewTab.Visible = not minimized
 	GameTab.Visible = not minimized
 	ConfigTab.Visible = not minimized
 	ReviewTab.Visible = not minimized
 	
-	NewScroll.Visible = not minimized and NewTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and NewTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
 	GameScroll.Visible = not minimized and GameTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and GameTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
 	ConfigScroll.Visible = not minimized and ConfigTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and ConfigTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
 	ReviewScroll.Visible = not minimized and ReviewTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and ReviewTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
