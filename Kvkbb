@@ -1,0 +1,1228 @@
+--[[
+	ADVERTENCIA: ¡Atención! Este script no ha sido verificado por ScriptBlox. ¡Úselo bajo su propia responsabilidad!
+]]
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local SoundService = game:GetService("SoundService")
+local HapticService = game:GetService("HapticService")
+local HttpService = game:GetService("HttpService")
+
+local Player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local PG = Player:WaitForChild("PlayerGui")
+local PROFILE_URL = "https://www.roblox.com/es/users/9059869146/profile"
+
+local Animations = true
+local Theme = "Oscuro"
+
+-- Variables Funcionales
+local SheriffAimbotEnabled = false
+local IgnoreWallsEnabled = false
+local MurdererReachEnabled = false
+local PreviewMeshEnabled = false
+local HitboxReachSize = 7
+
+local ESP_Murderer = false
+local ESP_Sheriff = false
+local ESP_Innocent = false
+local FullFPS_Enabled = false
+
+local aimbotConn = nil
+local reachConn = nil
+local previewPart = nil
+
+-- Configuración de Reseñas / Webhook
+local WEBHOOK_PROXY_URL = "PEGA_AQUI_TU_WEBHOOK"
+local COOLDOWN = 24 * 60 * 60
+local COOLDOWN_FILE = "XenonHubCooldown.txt"
+
+local function readCooldown()
+	if not isfile or not readfile then
+		return 0
+	end
+	local ok, result = pcall(function()
+		if isfile(COOLDOWN_FILE) then
+			return tonumber(readfile(COOLDOWN_FILE)) or 0
+		end
+		return 0
+	end)
+	return ok and result or 0
+end
+
+local function saveCooldown(timestamp)
+	if not writefile then
+		return false
+	end
+	return pcall(function()
+		writefile(COOLDOWN_FILE, tostring(timestamp))
+	end)
+end
+
+local function remainingTime()
+	return math.max(0, COOLDOWN - (os.time() - readCooldown()))
+end
+
+local function formatTime(seconds)
+	local hours = math.floor(seconds / 3600)
+	local minutes = math.floor((seconds % 3600) / 60)
+	local secs = seconds % 60
+	return string.format("%02d:%02d:%02d", hours, minutes, secs)
+end
+
+--------------------------------------------------
+-- FUNCIONES AUXILIARES
+--------------------------------------------------
+
+local function tw(o, t, p)
+	return TweenService:Create(o, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p)
+end
+
+local function cr(o, r)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r)
+	c.Parent = o
+end
+
+local function st(o, c, w)
+	local s = Instance.new("UIStroke")
+	s.Color = c
+	s.Thickness = w
+	s.Parent = o
+	return s
+end
+
+local ParentTarget = PG
+pcall(function()
+	if gethui then
+		ParentTarget = gethui()
+	elseif game:GetService("CoreGui") then
+		ParentTarget = game:GetService("CoreGui")
+	end
+end)
+
+local OldGUI = ParentTarget:FindFirstChild("MM2_HUB_MASTER") or PG:FindFirstChild("MM2_HUB_MASTER")
+if OldGUI then OldGUI:Destroy() end
+
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "MM2_HUB_MASTER"
+GUI.ResetOnSpawn = false
+GUI.IgnoreGuiInset = true
+GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+GUI.DisplayOrder = 2147483647
+
+pcall(function() GUI.ScreenInsets = Enum.ScreenInsets.None end)
+pcall(function() if syn and syn.protect_gui then syn.protect_gui(GUI) end end)
+GUI.Parent = ParentTarget
+
+--------------------------------------------------
+-- PANEL PRINCIPAL (COMPACTO)
+--------------------------------------------------
+
+local Main = Instance.new("Frame")
+Main.Name = "Principal"
+Main.Size = UDim2.fromOffset(330, 360)
+Main.Position = UDim2.new(.5, -165, .5, -180)
+Main.BackgroundColor3 = Color3.fromRGB(4, 6, 10)
+Main.BackgroundTransparency = 0.12
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Parent = GUI
+
+cr(Main, 14)
+local MainStroke = st(Main, Color3.fromRGB(0, 125, 255), 2)
+
+--------------------------------------------------
+-- BARRA SUPERIOR
+--------------------------------------------------
+
+local Top = Instance.new("Frame")
+Top.Size = UDim2.new(1, 0, 0, 48)
+Top.BackgroundTransparency = 1
+Top.Active = true
+Top.ZIndex = 10
+Top.Parent = Main
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -65, 0, 26)
+Title.Position = UDim2.fromOffset(12, 4)
+Title.BackgroundTransparency = 1
+Title.Text = "MM2 HUB ULTIMATE"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 11
+Title.Parent = Top
+
+local By = Instance.new("TextLabel")
+By.Size = UDim2.new(1, -65, 0, 16)
+By.Position = UDim2.fromOffset(13, 27)
+By.BackgroundTransparency = 1
+By.Text = "por dremmser"
+By.Font = Enum.Font.Garamond
+By.TextSize = 12
+By.TextColor3 = Color3.fromRGB(130, 175, 230)
+By.TextXAlignment = Enum.TextXAlignment.Left
+By.ZIndex = 11
+By.Parent = Top
+
+local Min = Instance.new("TextButton")
+Min.Size = UDim2.fromOffset(32, 28)
+Min.Position = UDim2.new(1, -40, 0, 8)
+Min.BackgroundColor3 = Color3.fromRGB(10, 16, 27)
+Min.Text = "-"
+Min.Font = Enum.Font.GothamBold
+Min.TextSize = 19
+Min.TextColor3 = Color3.new(1, 1, 1)
+Min.ZIndex = 20
+Min.Parent = Top
+cr(Min, 7)
+local MinStroke = st(Min, Color3.fromRGB(0, 125, 255), 1)
+
+local function vibrate()
+	pcall(function()
+		if HapticService:IsVibrationSupported(Enum.UserInputType.Gamepad1) then
+			HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, .18)
+			task.delay(.045, function() pcall(function() HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0) end) end)
+		end
+	end)
+	pcall(function() if haptic then haptic(.18, .045) end end)
+	pcall(function() if vibrateDevice then vibrateDevice(.045) end end)
+end
+
+--------------------------------------------------
+-- TRES PESTAÑAS (JUEGO, CONFIGURACIÓN Y RESEÑAS)
+--------------------------------------------------
+
+local GameTab = Instance.new("TextButton")
+GameTab.Size = UDim2.new(0.33, -6, 0, 31)
+GameTab.Position = UDim2.fromOffset(9, 52)
+GameTab.BackgroundColor3 = Color3.fromRGB(0, 85, 170)
+GameTab.Text = "JUEGO"
+GameTab.Font = Enum.Font.GothamBold
+GameTab.TextSize = 10
+GameTab.TextColor3 = Color3.new(1, 1, 1)
+GameTab.ZIndex = 10
+GameTab.Parent = Main
+cr(GameTab, 7)
+
+local ConfigTab = Instance.new("TextButton")
+ConfigTab.Size = UDim2.new(0.33, -6, 0, 31)
+ConfigTab.Position = UDim2.new(0.33, 3, 0, 52)
+ConfigTab.BackgroundColor3 = Color3.fromRGB(12, 17, 25)
+ConfigTab.Text = "CONFIG"
+ConfigTab.Font = Enum.Font.GothamBold
+ConfigTab.TextSize = 10
+ConfigTab.TextColor3 = Color3.fromRGB(145, 155, 170)
+ConfigTab.ZIndex = 10
+ConfigTab.Parent = Main
+cr(ConfigTab, 7)
+
+local ReviewTab = Instance.new("TextButton")
+ReviewTab.Size = UDim2.new(0.33, -6, 0, 31)
+ReviewTab.Position = UDim2.new(0.66, 3, 0, 52)
+ReviewTab.BackgroundColor3 = Color3.fromRGB(12, 17, 25)
+ReviewTab.Text = "RESEÑAS"
+ReviewTab.Font = Enum.Font.GothamBold
+ReviewTab.TextSize = 10
+ReviewTab.TextColor3 = Color3.fromRGB(145, 155, 170)
+ReviewTab.ZIndex = 10
+ReviewTab.Parent = Main
+cr(ReviewTab, 7)
+
+--------------------------------------------------
+-- PERGAMINOS Y CONTENEDORES
+--------------------------------------------------
+
+local function newScroll()
+	local s = Instance.new("ScrollingFrame")
+	s.Size = UDim2.new(1, -18, 1, -91)
+	s.Position = UDim2.fromOffset(9, 91)
+	s.BackgroundTransparency = 1
+	s.BorderSizePixel = 0
+	s.ScrollBarThickness = 3
+	s.ScrollBarImageColor3 = Color3.fromRGB(0, 125, 255)
+	s.CanvasSize = UDim2.new(0, 0, 0, 0)
+	s.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	s.ScrollingDirection = Enum.ScrollingDirection.Y
+	s.ZIndex = 4
+	s.Parent = Main
+	return s
+end
+
+local GameScroll = newScroll()
+local ConfigScroll = newScroll()
+local ReviewScroll = newScroll()
+ConfigScroll.Visible = false
+ReviewScroll.Visible = false
+
+local GamePage = Instance.new("Frame")
+GamePage.Size = UDim2.new(1, -5, 0, 1)
+GamePage.BackgroundTransparency = 1
+GamePage.AutomaticSize = Enum.AutomaticSize.Y
+GamePage.Parent = GameScroll
+
+local ConfigPage = Instance.new("Frame")
+ConfigPage.Size = UDim2.new(1, -5, 0, 1)
+ConfigPage.BackgroundTransparency = 1
+ConfigPage.AutomaticSize = Enum.AutomaticSize.Y
+ConfigPage.Parent = ConfigScroll
+
+local ReviewPage = Instance.new("Frame")
+ReviewPage.Size = UDim2.new(1, -5, 0, 1)
+ReviewPage.BackgroundTransparency = 1
+ReviewPage.AutomaticSize = Enum.AutomaticSize.Y
+ReviewPage.Parent = ReviewScroll
+
+--------------------------------------------------
+-- COMPONENTES UI
+--------------------------------------------------
+
+local function createSectionTitle(parent, text, yOffset)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 0, 24)
+	label.Position = UDim2.fromOffset(0, yOffset)
+	label.BackgroundTransparency = 1
+	label.Text = "-- " .. text .. " --"
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 11
+	label.TextColor3 = Color3.fromRGB(0, 170, 255)
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.ZIndex = 5
+	label.Parent = parent
+	return label
+end
+
+local function createToggleRow(parent, labelText, initialValue, yOffset, onToggle)
+	local Row = Instance.new("Frame")
+	Row.Size = UDim2.new(1, 0, 0, 42)
+	Row.Position = UDim2.fromOffset(0, yOffset)
+	Row.BackgroundColor3 = Color3.fromRGB(10, 17, 28)
+	Row.BackgroundTransparency = .2
+	Row.ZIndex = 5
+	Row.Parent = parent
+	cr(Row, 9)
+	local RowStroke = st(Row, Color3.fromRGB(0, 95, 220), 1)
+
+	local Label = Instance.new("TextLabel")
+	Label.Size = UDim2.new(1, -65, 1, 0)
+	Label.Position = UDim2.fromOffset(12, 0)
+	Label.BackgroundTransparency = 1
+	Label.Text = labelText
+	Label.Font = Enum.Font.GothamBold
+	Label.TextSize = 11
+	Label.TextColor3 = initialValue and Color3.fromRGB(0, 220, 255) or Color3.new(1, 1, 1)
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.ZIndex = 6
+	Label.Parent = Row
+
+	local ToggleBg = Instance.new("Frame")
+	ToggleBg.Size = UDim2.fromOffset(48, 24)
+	ToggleBg.Position = UDim2.new(1, -56, 0.5, -12)
+	ToggleBg.BackgroundColor3 = initialValue and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(40, 45, 55)
+	ToggleBg.ZIndex = 6
+	ToggleBg.Parent = Row
+	cr(ToggleBg, 12)
+	local ToggleStroke = st(ToggleBg, Color3.fromRGB(0, 150, 255), 1)
+
+	local ToggleKnob = Instance.new("Frame")
+	ToggleKnob.Size = UDim2.fromOffset(18, 18)
+	ToggleKnob.Position = initialValue and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+	ToggleKnob.BackgroundColor3 = Color3.new(1, 1, 1)
+	ToggleKnob.ZIndex = 7
+	ToggleKnob.Parent = ToggleBg
+	cr(ToggleKnob, 9)
+
+	local ToggleBtn = Instance.new("TextButton")
+	ToggleBtn.Size = UDim2.new(1, 0, 1, 0)
+	ToggleBtn.BackgroundTransparency = 1
+	ToggleBtn.Text = ""
+	ToggleBtn.ZIndex = 8
+	ToggleBtn.Parent = ToggleBg
+
+	local state = initialValue
+	ToggleBtn.MouseButton1Click:Connect(function()
+		vibrate()
+		state = not state
+		if state then
+			tw(ToggleBg, 0.2, {BackgroundColor3 = Color3.fromRGB(0, 170, 255)}):Play()
+			tw(ToggleKnob, 0.2, {Position = UDim2.new(1, -21, 0.5, -9)}):Play()
+			Label.TextColor3 = Color3.fromRGB(0, 220, 255)
+		else
+			tw(ToggleBg, 0.2, {BackgroundColor3 = Theme == "Light" and Color3.fromRGB(210, 220, 232) or Color3.fromRGB(40, 45, 55)}):Play()
+			tw(ToggleKnob, 0.2, {Position = UDim2.new(0, 3, 0.5, -9)}):Play()
+			Label.TextColor3 = Theme == "Light" and Color3.fromRGB(20, 28, 40) or Color3.new(1, 1, 1)
+		end
+		if onToggle then onToggle(state) end
+	end)
+
+	return Row, Label, ToggleBg, ToggleStroke, ToggleKnob
+end
+
+--------------------------------------------------
+-- CONTENIDO DE LA PÁGINA DEL JUEGO
+--------------------------------------------------
+
+createSectionTitle(GamePage, "Sheriff", 5)
+
+createToggleRow(GamePage, "Activar Aimbot (Torso)", SheriffAimbotEnabled, 32, function(val)
+	SheriffAimbotEnabled = val
+	if val then
+		aimbotConn = RunService.RenderStepped:Connect(function()
+			if not SheriffAimbotEnabled then return end
+			local targetTorso = nil
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p ~= Player and p.Character then
+					local char = p.Character
+					local bp = p:FindFirstChild("Backpack")
+					local hum = char:FindFirstChild("Humanoid")
+					if (char:FindFirstChild("Knife") or (bp and bp:FindFirstChild("Knife"))) and hum and hum.Health > 0 then
+						local torso = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+						if torso then
+							if IgnoreWallsEnabled then
+								targetTorso = torso
+								break
+							else
+								local rayParams = RaycastParams.new()
+								rayParams.FilterType = Enum.RaycastFilterType.Exclude
+								rayParams.FilterDescendantsInstances = {Player.Character, char}
+								local result = workspace:Raycast(Camera.CFrame.Position, (torso.Position - Camera.CFrame.Position), rayParams)
+								if not result then
+									targetTorso = torso
+									break
+								end
+							end
+						end
+					end
+				end
+			end
+			if targetTorso then
+				Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetTorso.Position)
+			end
+		end)
+	else
+		if aimbotConn then aimbotConn:Disconnect() aimbotConn = nil end
+	end
+end)
+
+createToggleRow(GamePage, "Ignorar paredes", IgnoreWallsEnabled, 79, function(val)
+	IgnoreWallsEnabled = val
+end)
+
+createSectionTitle(GamePage, "Asesino", 128)
+
+local ReachBoxBg, ReachTextBox, ReachTitle
+
+createToggleRow(GamePage, "Tamaño de malla de daño", MurdererReachEnabled, 155, function(val)
+	MurdererReachEnabled = val
+	if val then
+		ReachBoxBg.BackgroundColor3 = Theme == "Light" and Color3.fromRGB(235, 242, 250) or Color3.fromRGB(10, 17, 28)
+		ReachTextBox.TextEditable = true
+		ReachTextBox.TextColor3 = Theme == "Light" and Color3.fromRGB(0, 140, 240) or Color3.fromRGB(0, 220, 255)
+		ReachTitle.TextColor3 = Theme == "Light" and Color3.fromRGB(20, 28, 40) or Color3.new(1, 1, 1)
+	else
+		ReachBoxBg.BackgroundColor3 = Color3.fromRGB(50, 55, 65)
+		ReachTextBox.TextEditable = false
+		ReachTextBox.TextColor3 = Color3.fromRGB(130, 135, 145)
+		ReachTitle.TextColor3 = Color3.fromRGB(130, 135, 145)
+	end
+end)
+
+ReachBoxBg = Instance.new("Frame")
+ReachBoxBg.Size = UDim2.new(1, 0, 0, 42)
+ReachBoxBg.Position = UDim2.fromOffset(0, 202)
+ReachBoxBg.BackgroundColor3 = Color3.fromRGB(50, 55, 65)
+ReachBoxBg.ZIndex = 5
+ReachBoxBg.Parent = GamePage
+cr(ReachBoxBg, 9)
+st(ReachBoxBg, Color3.fromRGB(0, 95, 220), 1)
+
+ReachTitle = Instance.new("TextLabel")
+ReachTitle.Size = UDim2.new(1, -90, 1, 0)
+ReachTitle.Position = UDim2.fromOffset(12, 0)
+ReachTitle.BackgroundTransparency = 1
+ReachTitle.Text = "Tamaño de malla"
+ReachTitle.Font = Enum.Font.GothamBold
+ReachTitle.TextSize = 11
+ReachTitle.TextColor3 = Color3.fromRGB(130, 135, 145)
+ReachTitle.TextXAlignment = Enum.TextXAlignment.Left
+ReachTitle.ZIndex = 6
+ReachTitle.Parent = ReachBoxBg
+
+ReachTextBox = Instance.new("TextBox")
+ReachTextBox.Size = UDim2.fromOffset(65, 26)
+ReachTextBox.Position = UDim2.new(1, -75, 0.5, -13)
+ReachTextBox.BackgroundColor3 = Color3.fromRGB(8, 12, 18)
+ReachTextBox.Text = tostring(HitboxReachSize)
+ReachTextBox.Font = Enum.Font.GothamBold
+ReachTextBox.TextSize = 11
+ReachTextBox.TextColor3 = Color3.fromRGB(130, 135, 145)
+ReachTextBox.TextEditable = false
+ReachTextBox.ZIndex = 6
+ReachTextBox.Parent = ReachBoxBg
+cr(ReachTextBox, 7)
+st(ReachTextBox, Color3.fromRGB(0, 125, 255), 1)
+
+ReachTextBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local num = tonumber(ReachTextBox.Text)
+	if num then HitboxReachSize = num end
+end)
+
+createToggleRow(GamePage, "Vista previa de la malla", PreviewMeshEnabled, 249, function(val)
+	PreviewMeshEnabled = val
+	if not val and previewPart then
+		previewPart:Destroy()
+		previewPart = nil
+	end
+end)
+
+reachConn = RunService.RenderStepped:Connect(function()
+	local char = Player.Character
+	if not char then return end
+	local tool = char:FindFirstChildOfClass("Tool")
+	local handle = tool and tool:FindFirstChild("Handle")
+
+	if PreviewMeshEnabled then
+		if not previewPart then
+			previewPart = Instance.new("Part")
+			previewPart.Name = "MeshPreviewNet"
+			previewPart.Shape = Enum.PartType.Ball
+			previewPart.Material = Enum.Material.ForceField
+			previewPart.Color = Color3.fromRGB(0, 255, 255)
+			previewPart.Transparency = 0.25
+			previewPart.CanCollide = false
+			previewPart.Anchored = true
+			previewPart.Parent = workspace
+		end
+		local followPart = handle or char:FindFirstChild("HumanoidRootPart")
+		if followPart then
+			previewPart.Size = Vector3.new(HitboxReachSize, HitboxReachSize, HitboxReachSize)
+			previewPart.CFrame = followPart.CFrame
+		end
+	else
+		if previewPart then
+			previewPart:Destroy()
+			previewPart = nil
+		end
+	end
+
+	if not MurdererReachEnabled or HitboxReachSize <= 0 or not handle then return end
+
+	handle.CanCollide = false
+	handle.Massless = true
+
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= Player and p.Character then
+			local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+			if hrp and (hrp.Position - handle.Position).Magnitude <= HitboxReachSize then
+				firetouchinterest(hrp, handle, 0)
+				firetouchinterest(hrp, handle, 1)
+			end
+		end
+	end
+end)
+
+createSectionTitle(GamePage, "Player ESP", 298)
+
+local function updateESP()
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= Player and p.Character then
+			local char = p.Character
+			local head = char:FindFirstChild("Head")
+			local bp = p:FindFirstChild("Backpack")
+			local isMurderer = char:FindFirstChild("Knife") ~= nil or (bp and bp:FindFirstChild("Knife") ~= nil)
+			local isSheriff = char:FindFirstChild("Gun") ~= nil or (bp and bp:FindFirstChild("Gun") ~= nil)
+			
+			local hl = char:FindFirstChild("ESP_Highlight")
+			local bb = head and head:FindFirstChild("ESP_Billboard")
+			local shouldShow = (isMurderer and ESP_Murderer) or (isSheriff and ESP_Sheriff) or (not isMurderer and not isSheriff and ESP_Innocent)
+
+			if shouldShow then
+				if not hl then
+					hl = Instance.new("Highlight")
+					hl.Name = "ESP_Highlight"
+					hl.Parent = char
+				end
+				hl.FillTransparency = 0.5
+				hl.OutlineTransparency = 0
+
+				if head and not bb then
+					bb = Instance.new("BillboardGui")
+					bb.Name = "ESP_Billboard"
+					bb.Size = UDim2.fromOffset(120, 30)
+					bb.StudsOffset = Vector3.new(0, 3, 0)
+					bb.AlwaysOnTop = true
+					bb.Parent = head
+
+					local lbl = Instance.new("TextLabel")
+					lbl.Name = "RoleLabel"
+					lbl.Size = UDim2.fromScale(1, 1)
+					lbl.BackgroundTransparency = 1
+					lbl.Font = Enum.Font.GothamBold
+					lbl.TextSize = 13
+					lbl.TextStrokeTransparency = 0
+					lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+					lbl.Parent = bb
+				end
+
+				local roleLabel = bb and bb:FindFirstChild("RoleLabel")
+
+				if isMurderer then
+					hl.FillColor = Color3.fromRGB(255, 50, 50)
+					if roleLabel then
+						roleLabel.Text = "🔴 ASESINO"
+						roleLabel.TextColor3 = Color3.fromRGB(255, 70, 70)
+					end
+				elseif isSheriff then
+					hl.FillColor = Color3.fromRGB(50, 150, 255)
+					if roleLabel then
+						roleLabel.Text = "🔵 SHERIFF"
+						roleLabel.TextColor3 = Color3.fromRGB(70, 170, 255)
+					end
+				else
+					hl.FillColor = Color3.fromRGB(50, 255, 100)
+					if roleLabel then
+						roleLabel.Text = "🟢 INOCENTE"
+						roleLabel.TextColor3 = Color3.fromRGB(80, 255, 120)
+					end
+				end
+			else
+				if hl then hl:Destroy() end
+				if bb then bb:Destroy() end
+			end
+		end
+	end
+end
+
+RunService.RenderStepped:Connect(updateESP)
+
+createToggleRow(GamePage, "ESP Asesino", ESP_Murderer, 325, function(val) ESP_Murderer = val end)
+createToggleRow(GamePage, "ESP Sheriff", ESP_Sheriff, 372, function(val) ESP_Sheriff = val end)
+createToggleRow(GamePage, "ESP Inocente", ESP_Innocent, 419, function(val) ESP_Innocent = val end)
+
+createSectionTitle(GamePage, "Mejora del juego", 468)
+
+createToggleRow(GamePage, "Full fps", FullFPS_Enabled, 495, function(val)
+	FullFPS_Enabled = val
+	pcall(function()
+		if val then
+			Lighting.GlobalShadows = false
+			Lighting.FogEnd = 9e9
+			for _, v in ipairs(workspace:GetDescendants()) do
+				if v:IsA("BasePart") then
+					v.Material = Enum.Material.SmoothPlastic
+				elseif v:IsA("Decal") or v:IsA("Texture") then
+					v.Transparency = 1
+				end
+			end
+		else
+			Lighting.GlobalShadows = true
+		end
+	end)
+end)
+
+--------------------------------------------------
+-- CONTENIDO DE LA PÁGINA DE CONFIGURACIÓN
+--------------------------------------------------
+
+local CreatedButtons = {}
+local function button(parent, text, y, h)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(1, 0, 0, h)
+	b.Position = UDim2.fromOffset(0, y)
+	b.BackgroundColor3 = Color3.fromRGB(8, 25, 45)
+	b.Text = text
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 11
+	b.TextColor3 = Color3.new(1, 1, 1)
+	b.ZIndex = 5
+	b.Parent = parent
+	cr(b, 8)
+	local stroke = st(b, Color3.fromRGB(0, 130, 255), 1)
+	b.MouseButton1Click:Connect(vibrate)
+	table.insert(CreatedButtons, {Btn = b, Stroke = stroke})
+	return b
+end
+
+local Follow = Instance.new("TextLabel")
+Follow.Size = UDim2.new(1, 0, 0, 22)
+Follow.BackgroundTransparency = 1
+Follow.Text = "Sígueme para más scripts"
+Follow.Font = Enum.Font.GothamBold
+Follow.TextSize = 12
+Follow.TextColor3 = Color3.new(1, 1, 1)
+Follow.ZIndex = 5
+Follow.Parent = ConfigPage
+
+local Copy = button(ConfigPage, "COPIAR PERFIL", 26, 32)
+
+local ThemeLabel = Instance.new("TextLabel")
+ThemeLabel.Size = UDim2.new(1, -100, 0, 28)
+ThemeLabel.Position = UDim2.fromOffset(0, 66)
+ThemeLabel.BackgroundTransparency = 1
+ThemeLabel.Text = "Tema"
+ThemeLabel.Font = Enum.Font.GothamBold
+ThemeLabel.TextSize = 12
+ThemeLabel.TextColor3 = Color3.new(1, 1, 1)
+ThemeLabel.TextXAlignment = Enum.TextXAlignment.Left
+ThemeLabel.ZIndex = 5
+ThemeLabel.Parent = ConfigPage
+
+local ThemeButton = Instance.new("TextButton")
+ThemeButton.Size = UDim2.fromOffset(90, 28)
+ThemeButton.Position = UDim2.new(1, -90, 0, 66)
+ThemeButton.BackgroundColor3 = Color3.fromRGB(15, 22, 32)
+ThemeButton.Text = "Oscuro ▼"
+ThemeButton.Font = Enum.Font.Gotham
+ThemeButton.TextSize = 10
+ThemeButton.TextColor3 = Color3.new(1, 1, 1)
+ThemeButton.ZIndex = 5
+ThemeButton.Parent = ConfigPage
+cr(ThemeButton, 7)
+local ThemeButtonStroke = st(ThemeButton, Color3.fromRGB(0, 125, 255), 1)
+
+local ThemeOptions = Instance.new("Frame")
+ThemeOptions.Size = UDim2.fromOffset(110, 66)
+ThemeOptions.Position = UDim2.new(1, -110, 0, 95)
+ThemeOptions.BackgroundColor3 = Color3.fromRGB(8, 12, 18)
+ThemeOptions.Visible = false
+ThemeOptions.ZIndex = 30
+ThemeOptions.Parent = ConfigPage
+cr(ThemeOptions, 8)
+local ThemeOptionsStroke = st(ThemeOptions, Color3.fromRGB(0, 125, 255), 1)
+
+local Light = Instance.new("TextButton")
+Light.Size = UDim2.new(1, -8, 0, 25)
+Light.Position = UDim2.fromOffset(4, 4)
+Light.BackgroundColor3 = Color3.fromRGB(35, 40, 48)
+Light.Text = "Claro"
+Light.Font = Enum.Font.Gotham
+Light.TextSize = 10
+Light.TextColor3 = Color3.fromRGB(190, 195, 205)
+Light.ZIndex = 31
+Light.Parent = ThemeOptions
+cr(Light, 6)
+
+local Dark = Light:Clone()
+Dark.Position = UDim2.fromOffset(4, 37)
+Dark.Text = "Oscuro"
+Dark.BackgroundColor3 = Color3.fromRGB(75, 80, 90)
+Dark.Parent = ThemeOptions
+
+local Exit = Instance.new("TextButton")
+Exit.Size = UDim2.new(1, 0, 0, 30)
+Exit.Position = UDim2.fromOffset(0, 110)
+Exit.BackgroundColor3 = Color3.fromRGB(75, 25, 30)
+Exit.Text = "SALIR"
+Exit.Font = Enum.Font.GothamBold
+Exit.TextSize = 10
+Exit.TextColor3 = Color3.new(1, 1, 1)
+Exit.ZIndex = 5
+Exit.Parent = ConfigPage
+cr(Exit, 8)
+
+--------------------------------------------------
+-- CONTENIDO DE LA PÁGINA DE RESEÑAS
+--------------------------------------------------
+
+local ReviewTitle = Instance.new("TextLabel")
+ReviewTitle.Size = UDim2.new(1, 0, 0, 25)
+ReviewTitle.BackgroundTransparency = 1
+ReviewTitle.Text = "ENVIAR SUGERENCIA"
+ReviewTitle.Font = Enum.Font.GothamBold
+ReviewTitle.TextSize = 12
+ReviewTitle.TextColor3 = Color3.new(1, 1, 1)
+ReviewTitle.Parent = ReviewPage
+
+local BoxContainer = Instance.new("Frame")
+BoxContainer.Size = UDim2.new(1, 0, 0, 100)
+BoxContainer.Position = UDim2.fromOffset(0, 30)
+BoxContainer.BackgroundColor3 = Color3.fromRGB(5, 10, 18)
+BoxContainer.BackgroundTransparency = 0.3
+BoxContainer.Parent = ReviewPage
+
+cr(BoxContainer, 8)
+st(BoxContainer, Color3.fromRGB(0, 100, 200), 1)
+
+local TextBox = Instance.new("TextBox")
+TextBox.Size = UDim2.new(1, -16, 1, -12)
+TextBox.Position = UDim2.fromOffset(8, 6)
+TextBox.BackgroundTransparency = 1
+TextBox.Text = ""
+TextBox.PlaceholderText = "Escribe tu reseña o recomendación aquí..."
+TextBox.PlaceholderColor3 = Color3.fromRGB(130, 145, 165)
+TextBox.Font = Enum.Font.Gotham
+TextBox.TextSize = 12
+TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.TextWrapped = true
+TextBox.TextXAlignment = Enum.TextXAlignment.Left
+TextBox.TextYAlignment = Enum.TextYAlignment.Top
+TextBox.ClearTextOnFocus = false
+TextBox.Parent = BoxContainer
+
+local SendBtn = Instance.new("TextButton")
+SendBtn.Size = UDim2.new(1, 0, 0, 36)
+SendBtn.Position = UDim2.fromOffset(0, 138)
+SendBtn.BackgroundColor3 = Color3.fromRGB(0, 110, 220)
+SendBtn.Text = "ENVIAR  ✈"
+SendBtn.Font = Enum.Font.GothamBold
+SendBtn.TextSize = 12
+SendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SendBtn.Parent = ReviewPage
+cr(SendBtn, 8)
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, 0, 0, 35)
+Status.Position = UDim2.fromOffset(0, 180)
+Status.BackgroundTransparency = 1
+Status.Text = ""
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 10
+Status.TextColor3 = Color3.fromRGB(255, 255, 255)
+Status.TextWrapped = true
+Status.Parent = ReviewPage
+
+local SuccessCheck = Instance.new("TextLabel")
+SuccessCheck.Size = UDim2.fromOffset(70, 70)
+SuccessCheck.Position = UDim2.new(0.5, -35, 0.35, -35)
+SuccessCheck.BackgroundTransparency = 1
+SuccessCheck.Text = "✓"
+SuccessCheck.Font = Enum.Font.GothamBold
+SuccessCheck.TextSize = 1
+SuccessCheck.TextColor3 = Color3.fromRGB(0, 255, 130)
+SuccessCheck.TextTransparency = 1
+SuccessCheck.ZIndex = 10
+SuccessCheck.Parent = ReviewPage
+
+local function playCelebration()
+	for i = 1, 20 do
+		local particle = Instance.new("Frame")
+		particle.Size = UDim2.fromOffset(math.random(6, 10), math.random(6, 10))
+		particle.Position = UDim2.new(0.5, 0, 0.5, 0)
+		particle.BackgroundColor3 = Color3.fromHSV(math.random(), 0.8, 1)
+		particle.BorderSizePixel = 0
+		particle.ZIndex = 15
+		particle.Parent = ReviewPage
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = particle
+
+		TweenService:Create(
+			particle,
+			TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{
+				Position = UDim2.new(0.5, math.random(-130, 130), 0.5, math.random(-110, 110)),
+				BackgroundTransparency = 1,
+				Rotation = math.random(0, 360)
+			}
+		):Play()
+
+		task.delay(0.8, function()
+			if particle.Parent then particle:Destroy() end
+		end)
+	end
+end
+
+local function sendFeedback(message)
+	local req = request or http_request
+	if not req then return false, "No hay una función HTTP disponible." end
+
+	local payload = {
+		embeds = {{
+			title = "⭐ Nueva sugerencia recibida",
+			color = 65280,
+			fields = {
+				{ name = "Jugador", value = Player.Name .. " (@" .. Player.DisplayName .. ")", inline = true },
+				{ name = "User ID", value = tostring(Player.UserId), inline = true },
+				{ name = "Comentario", value = message:sub(1, 1000), inline = false }
+			},
+			timestamp = DateTime.now():ToIsoDate()
+		}}
+	}
+
+	local ok, response = pcall(function()
+		return req({
+			Url = WEBHOOK_PROXY_URL,
+			Method = "POST",
+			Headers = { ["Content-Type"] = "application/json" },
+			Body = HttpService:JSONEncode(payload)
+		})
+	end)
+
+	if not ok or type(response) ~= "table" then return false, "No se pudo verificar el envío." end
+	local code = response.StatusCode or response.Status
+	if response.Success == false then return false, "El servidor rechazó la solicitud." end
+	if code and (code < 200 or code >= 300) then return false, "Error HTTP: " .. tostring(code) end
+	return true
+end
+
+local sending = false
+
+local function updateCooldownDisplay()
+	local left = remainingTime()
+	if left > 0 then
+		SendBtn.Text = "ESPERA " .. formatTime(left)
+		SendBtn.BackgroundColor3 = Color3.fromRGB(55, 65, 80)
+		SendBtn.Active = false
+		TextBox.TextEditable = false
+		Status.Text = "El administrador dormilón revisará tu sugerencia. 💙"
+		Status.TextColor3 = Color3.fromRGB(160, 190, 220)
+	else
+		SendBtn.Text = "ENVIAR  ✈"
+		SendBtn.BackgroundColor3 = Color3.fromRGB(0, 110, 220)
+		SendBtn.Active = true
+		TextBox.TextEditable = true
+		Status.Text = "Puedes enviar una nueva sugerencia."
+		Status.TextColor3 = Color3.fromRGB(180, 200, 220)
+	end
+end
+
+SendBtn.MouseButton1Click:Connect(function()
+	if sending then return end
+	local left = remainingTime()
+	if left > 0 then
+		updateCooldownDisplay()
+		return
+	end
+
+	local msg = TextBox.Text:match("^%s*(.-)%s*$")
+	if #msg < 3 then
+		Status.Text = "Escribe al menos 3 caracteres."
+		Status.TextColor3 = Color3.fromRGB(255, 190, 70)
+		return
+	end
+
+	sending = true
+	SendBtn.Active = false
+	SendBtn.Text = "ENVIANDO..."
+
+	local success, err = sendFeedback(msg)
+	if not success then
+		sending = false
+		Status.Text = err or "No se pudo enviar la sugerencia."
+		Status.TextColor3 = Color3.fromRGB(255, 100, 100)
+		updateCooldownDisplay()
+		return
+	end
+
+	local saved = saveCooldown(os.time())
+	BoxContainer.Visible = false
+	SendBtn.Visible = false
+	Status.Visible = false
+
+	SuccessCheck.TextSize = 1
+	SuccessCheck.TextTransparency = 0
+
+	TweenService:Create(
+		SuccessCheck,
+		TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{TextSize = 65}
+	):Play()
+
+	playCelebration()
+
+	local ThankYou = Instance.new("TextLabel")
+	ThankYou.Size = UDim2.new(1, 0, 0, 105)
+	ThankYou.Position = UDim2.fromOffset(0, 50)
+	ThankYou.BackgroundTransparency = 1
+	ThankYou.Text = "¡Gracias por tu sugerencia! 💙\n\nCuando el administrador dormilón despierte y vea tu mensaje, lo tendrá en cuenta para la próxima actualización. 🚀"
+	ThankYou.Font = Enum.Font.Gotham
+	ThankYou.TextSize = 12
+	ThankYou.TextColor3 = Color3.fromRGB(255, 255, 255)
+	ThankYou.TextWrapped = true
+	ThankYou.ZIndex = 11
+	ThankYou.Parent = ReviewPage
+
+	task.wait(4)
+	ThankYou:Destroy()
+
+	TweenService:Create(
+		SuccessCheck,
+		TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		{ TextTransparency = 1, TextSize = 1 }
+	):Play()
+
+	TextBox.Text = ""
+	BoxContainer.Visible = true
+	SendBtn.Visible = true
+	Status.Visible = true
+	sending = false
+
+	if not saved then
+		Status.Text = "Aviso: no se pudo guardar el cooldown local."
+		Status.TextColor3 = Color3.fromRGB(255, 190, 70)
+	end
+
+	updateCooldownDisplay()
+end)
+
+task.spawn(function()
+	while GUI.Parent do
+		updateCooldownDisplay()
+		task.wait(1)
+	end
+end)
+
+--------------------------------------------------
+-- SISTEMA DE TEMAS
+--------------------------------------------------
+
+local function ApplyTheme()
+	if Theme == "Claro" then
+		Main.BackgroundColor3 = Color3.fromRGB(250, 252, 255)
+		Main.BackgroundTransparency = 0.05
+		MainStroke.Color = Color3.fromRGB(0, 160, 255)
+
+		Title.TextColor3 = Color3.fromRGB(20, 28, 40)
+		By.TextColor3 = Color3.fromRGB(0, 110, 210)
+
+		Min.BackgroundColor3 = Color3.fromRGB(230, 238, 248)
+		Min.TextColor3 = Color3.fromRGB(20, 28, 40)
+		MinStroke.Color = Color3.fromRGB(0, 150, 240)
+
+		ThemeButton.Text = "Claro ▼"
+		ThemeButton.BackgroundColor3 = Color3.fromRGB(235, 242, 250)
+		ThemeButton.TextColor3 = Color3.fromRGB(20, 28, 40)
+		ThemeButtonStroke.Color = Color3.fromRGB(0, 150, 240)
+
+		ThemeOptions.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		ThemeOptionsStroke.Color = Color3.fromRGB(0, 150, 240)
+
+		Light.BackgroundColor3 = Color3.fromRGB(0, 140, 240)
+		Light.TextColor3 = Color3.new(1, 1, 1)
+		Dark.BackgroundColor3 = Color3.fromRGB(225, 232, 242)
+		Dark.TextColor3 = Color3.fromRGB(50, 60, 75)
+
+		Follow.TextColor3 = Color3.fromRGB(20, 28, 40)
+		ThemeLabel.TextColor3 = Color3.fromRGB(20, 28, 40)
+
+		if ReachBoxBg then
+			ReachBoxBg.BackgroundColor3 = MurdererReachEnabled and Color3.fromRGB(235, 242, 250) or Color3.fromRGB(210, 215, 225)
+			ReachTitle.TextColor3 = MurdererReachEnabled and Color3.fromRGB(20, 28, 40) or Color3.fromRGB(130, 135, 145)
+		end
+
+		for _, item in ipairs(CreatedButtons) do
+			item.Btn.BackgroundColor3 = Color3.fromRGB(230, 238, 248)
+			item.Btn.TextColor3 = Color3.fromRGB(20, 28, 40)
+			item.Stroke.Color = Color3.fromRGB(0, 140, 240)
+		end
+	else
+		Main.BackgroundColor3 = Color3.fromRGB(4, 6, 10)
+		Main.BackgroundTransparency = 0.12
+		MainStroke.Color = Color3.fromRGB(0, 125, 255)
+
+		Title.TextColor3 = Color3.new(1, 1, 1)
+		By.TextColor3 = Color3.fromRGB(130, 175, 230)
+
+		Min.BackgroundColor3 = Color3.fromRGB(10, 16, 27)
+		Min.TextColor3 = Color3.new(1, 1, 1)
+		MinStroke.Color = Color3.fromRGB(0, 125, 255)
+
+		ThemeButton.Text = "Oscuro ▼"
+		ThemeButton.BackgroundColor3 = Color3.fromRGB(15, 22, 32)
+		ThemeButton.TextColor3 = Color3.new(1, 1, 1)
+		ThemeButtonStroke.Color = Color3.fromRGB(0, 125, 255)
+
+		ThemeOptions.BackgroundColor3 = Color3.fromRGB(8, 12, 18)
+		ThemeOptionsStroke.Color = Color3.fromRGB(0, 125, 255)
+
+		Light.BackgroundColor3 = Color3.fromRGB(35, 40, 48)
+		Light.TextColor3 = Color3.fromRGB(190, 195, 205)
+		Dark.BackgroundColor3 = Color3.fromRGB(75, 80, 90)
+		Dark.TextColor3 = Color3.new(1, 1, 1)
+
+		Follow.TextColor3 = Color3.new(1, 1, 1)
+		ThemeLabel.TextColor3 = Color3.new(1, 1, 1)
+
+		if ReachBoxBg then
+			ReachBoxBg.BackgroundColor3 = MurdererReachEnabled and Color3.fromRGB(10, 17, 28) or Color3.fromRGB(50, 55, 65)
+			ReachTitle.TextColor3 = MurdererReachEnabled and Color3.new(1, 1, 1) or Color3.fromRGB(130, 135, 145)
+		end
+
+		for _, item in ipairs(CreatedButtons) do
+			item.Btn.BackgroundColor3 = Color3.fromRGB(8, 25, 45)
+			item.Btn.TextColor3 = Color3.new(1, 1, 1)
+			item.Stroke.Color = Color3.fromRGB(0, 130, 255)
+		end
+	end
+end
+
+ThemeButton.MouseButton1Click:Connect(function()
+	vibrate()
+	ThemeOptions.Visible = not ThemeOptions.Visible
+end)
+
+Light.MouseButton1Click:Connect(function()
+	vibrate()
+	Theme = "Claro"
+	ApplyTheme()
+	ThemeOptions.Visible = false
+end)
+
+Dark.MouseButton1Click:Connect(function()
+	vibrate()
+	Theme = "Oscuro"
+	ApplyTheme()
+	ThemeOptions.Visible = false
+end)
+
+--------------------------------------------------
+-- CAMBIO DE PESTAÑAS Y SALIDA
+--------------------------------------------------
+
+local function updateTabColors(activeTab)
+	local isLight = (Theme == "Light")
+	local activeBg = isLight and Color3.fromRGB(0, 140, 240) or Color3.fromRGB(0, 85, 170)
+	local inactiveBg = isLight and Color3.fromRGB(230, 238, 248) or Color3.fromRGB(12, 17, 25)
+	local inactiveText = isLight and Color3.fromRGB(70, 85, 105) or Color3.fromRGB(145, 155, 170)
+
+	GameTab.BackgroundColor3 = (activeTab == "Game") and activeBg or inactiveBg
+	GameTab.TextColor3 = (activeTab == "Game") and Color3.new(1, 1, 1) or inactiveText
+
+	ConfigTab.BackgroundColor3 = (activeTab == "Config") and activeBg or inactiveBg
+	ConfigTab.TextColor3 = (activeTab == "Config") and Color3.new(1, 1, 1) or inactiveText
+
+	ReviewTab.BackgroundColor3 = (activeTab == "Review") and activeBg or inactiveBg
+	ReviewTab.TextColor3 = (activeTab == "Review") and Color3.new(1, 1, 1) or inactiveText
+end
+
+GameTab.MouseButton1Click:Connect(function()
+	vibrate()
+	GameScroll.Visible = true
+	ConfigScroll.Visible = false
+	ReviewScroll.Visible = false
+	updateTabColors("Game")
+end)
+
+ConfigTab.MouseButton1Click:Connect(function()
+	vibrate()
+	GameScroll.Visible = false
+	ConfigScroll.Visible = true
+	ReviewScroll.Visible = false
+	updateTabColors("Config")
+end)
+
+ReviewTab.MouseButton1Click:Connect(function()
+	vibrate()
+	GameScroll.Visible = false
+	ConfigScroll.Visible = false
+	ReviewScroll.Visible = true
+	updateTabColors("Review")
+end)
+
+local Confirm = Instance.new("Frame")
+Confirm.Size = UDim2.fromOffset(250, 135)
+Confirm.Position = UDim2.new(.5, -125, .5, -67)
+Confirm.BackgroundColor3 = Color3.fromRGB(5, 8, 14)
+Confirm.Visible = false
+Confirm.ZIndex = 100
+Confirm.Parent = GUI
+cr(Confirm, 13)
+st(Confirm, Color3.fromRGB(0, 125, 255), 2)
+
+local ConfirmText = Instance.new("TextLabel")
+ConfirmText.Size = UDim2.new(1, -20, 0, 50)
+ConfirmText.Position = UDim2.fromOffset(10, 10)
+ConfirmText.BackgroundTransparency = 1
+ConfirmText.Text = "¿Quieres salir del menú?"
+ConfirmText.Font = Enum.Font.GothamBold
+ConfirmText.TextSize = 14
+ConfirmText.TextColor3 = Color3.new(1, 1, 1)
+ConfirmText.ZIndex = 101
+ConfirmText.Parent = Confirm
+
+local Yes = Instance.new("TextButton")
+Yes.Size = UDim2.fromOffset(95, 33)
+Yes.Position = UDim2.fromOffset(18, 87)
+Yes.BackgroundColor3 = Color3.fromRGB(125, 35, 40)
+Yes.Text = "SALIR"
+Yes.Font = Enum.Font.GothamBold
+Yes.TextSize = 10
+Yes.TextColor3 = Color3.new(1, 1, 1)
+Yes.ZIndex = 101
+Yes.Parent = Confirm
+cr(Yes, 8)
+
+local No = Yes:Clone()
+No.Position = UDim2.fromOffset(137, 87)
+No.BackgroundColor3 = Color3.fromRGB(30, 40, 55)
+No.Text = "CANCELAR"
+No.Parent = Confirm
+
+Exit.MouseButton1Click:Connect(function() vibrate() Confirm.Visible = true end)
+No.MouseButton1Click:Connect(function() vibrate() Confirm.Visible = false end)
+Yes.MouseButton1Click:Connect(function()
+	vibrate()
+	if aimbotConn then aimbotConn:Disconnect() end
+	if reachConn then reachConn:Disconnect() end
+	if previewPart then previewPart:Destroy() end
+	
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character then
+			local hl = p.Character:FindFirstChild("ESP_Highlight")
+			if hl then hl:Destroy() end
+			local head = p.Character:FindFirstChild("Head")
+			if head then
+				local bb = head:FindFirstChild("ESP_Billboard")
+				if bb then bb:Destroy() end
+			end
+		end
+	end
+
+	GUI:Destroy()
+end)
+
+Copy.MouseButton1Click:Connect(function()
+	vibrate()
+	pcall(function() if setclipboard then setclipboard(PROFILE_URL) end end)
+	Copy.Text = "COPIADO"
+	task.delay(2, function() if Copy.Parent then Copy.Text = "COPIAR PERFIL" end end)
+end)
+
+--------------------------------------------------
+-- DRAG Y MINIMIZAR
+--------------------------------------------------
+
+local dragging, dragStart, startPos
+Top.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = Main.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.MouseMovement) then
+		local delta = input.Position - dragStart
+		Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.MouseButton1 then
+		dragging = false
+	end
+end)
+
+local minimized = false
+Min.MouseButton1Click:Connect(function()
+	vibrate()
+	minimized = not minimized
+	GameTab.Visible = not minimized
+	ConfigTab.Visible = not minimized
+	ReviewTab.Visible = not minimized
+	
+	GameScroll.Visible = not minimized and GameTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and GameTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
+	ConfigScroll.Visible = not minimized and ConfigTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and ConfigTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
+	ReviewScroll.Visible = not minimized and ReviewTab.BackgroundColor3 ~= Color3.fromRGB(12, 17, 25) and ReviewTab.BackgroundColor3 ~= Color3.fromRGB(230, 238, 248)
+
+	Min.Text = minimized and "□" or "-"
+	tw(Main, .25, {Size = minimized and UDim2.fromOffset(260, 48) or UDim2.fromOffset(330, 360)}):Play()
+end)
+
+ApplyTheme()
