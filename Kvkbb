@@ -1,3 +1,131 @@
+pcall(function() if _G.MM2_ONLINE_STOP then _G.MM2_ONLINE_STOP() end end)
+
+local Online = (function()
+	local DB = "https://nhfkjvgfnlk-default-rtdb.firebaseio.com/online"
+	local req = request or http_request or (syn and syn.request) or (http and http.request)
+	local HS = game:GetService("HttpService")
+	local myId = tostring(game:GetService("Players").LocalPlayer.UserId)
+
+	local PING_EVERY = 3
+	local READ_EVERY = 1
+	local ALIVE_MS = 10000
+	local STALE_MS = 60000
+
+	local listeners, nextKey = {}, 0
+	local token, running = 0, false
+	local serverNow, clockAtPing = nil, 0
+	local lastCount = nil
+
+	local function code(r)
+		return r and (r.StatusCode or (r.Success and 200))
+	end
+
+	local function push(n)
+		for _, fn in pairs(listeners) do
+			task.spawn(pcall, fn, n)
+		end
+	end
+
+	local function nowMs()
+		if not serverNow then return nil end
+		return serverNow + (os.clock() - clockAtPing) * 1000
+	end
+
+	local function ping()
+		local ok, r = pcall(req, {
+			Url = DB .. "/" .. myId .. ".json",
+			Method = "PUT",
+			Headers = {["Content-Type"] = "application/json"},
+			Body = '{".sv":"timestamp"}'
+		})
+		if ok and code(r) == 200 then
+			local t = tonumber(r.Body)
+			if t then
+				serverNow, clockAtPing = t, os.clock()
+				return true
+			end
+		end
+		return false
+	end
+
+	local function read()
+		local ok, g = pcall(req, {Url = DB .. ".json", Method = "GET"})
+		if not ok or code(g) ~= 200 then return nil end
+		local ok2, data = pcall(HS.JSONDecode, HS, g.Body)
+		if not ok2 or type(data) ~= "table" then return 1 end
+		local now = nowMs()
+		if not now then return nil end
+		local n = 0
+		for k, t in pairs(data) do
+			if type(t) == "number" then
+				if now - t < ALIVE_MS then
+					n += 1
+				elseif now - t > STALE_MS then
+					task.spawn(pcall, req, {Url = DB .. "/" .. k .. ".json", Method = "DELETE"})
+				end
+			end
+		end
+		return math.max(n, 1)
+	end
+
+	local function start()
+		if running then return end
+		if not req then return end
+		running = true
+		token += 1
+		local my = token
+
+		task.spawn(function()
+			while running and token == my do
+				ping()
+				task.wait(PING_EVERY)
+			end
+		end)
+
+		task.spawn(function()
+			while running and token == my do
+				local n = read()
+				if n ~= lastCount then
+					lastCount = n
+					push(n)
+				end
+				task.wait(READ_EVERY)
+			end
+		end)
+	end
+
+	local function stop()
+		if not running then return end
+		running = false
+		token += 1
+		lastCount = nil
+		if req then
+			task.spawn(pcall, req, {Url = DB .. "/" .. myId .. ".json", Method = "DELETE"})
+		end
+	end
+
+	local function bind(fn)
+		nextKey += 1
+		local key = nextKey
+		listeners[key] = fn
+		start()
+		if lastCount then task.spawn(pcall, fn, lastCount) end
+		return function()
+			if listeners[key] == nil then return end
+			listeners[key] = nil
+			task.delay(2, function()
+				if next(listeners) == nil then stop() end
+			end)
+		end
+	end
+
+	return {
+		bind = bind,
+		stop = function() listeners = {} stop() end,
+	}
+end)()
+_G.MM2_ONLINE_STOP = Online.stop
+
 local function LaunchGen2()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -111,6 +239,19 @@ local autofarmTab = window:CreateTab({ name = "Autofarm" })
 local improveTab = window:CreateTab({ name = "Mejora del juego" })
 local configTab = window:CreateTab({ name = "Config" })
 local reviewTab = window:CreateTab({ name = "Reseñas" })
+
+local unbindOnline
+do
+	local onlineText = quickTab:CreateText({
+		name = "Jugadores en línea",
+		text = "Conectando...",
+	})
+	unbindOnline = Online.bind(function(n)
+		pcall(function()
+			onlineText:Set(n and ("🟢 En línea hay " .. n .. " usando el guion") or "🔴 Sin conexión")
+		end)
+	end)
+end
 
 local function notify(text)
 	pcall(function()
@@ -1336,6 +1477,8 @@ local function cleanup()
 	pcall(clearDroppedGunESP)
 	pcall(clearPlayerESP)
 
+	if unbindOnline then pcall(unbindOnline) end
+
 	if not window.unloaded then
 		pcall(function() window:Unload() end)
 	end
@@ -1654,6 +1797,37 @@ By.TextColor3 = Color3.fromRGB(130, 175, 230)
 By.TextXAlignment = Enum.TextXAlignment.Left
 By.ZIndex = 11
 By.Parent = Top
+
+do
+	local OnlineLabel = Instance.new("TextLabel")
+	OnlineLabel.Size = UDim2.new(1, -150, 0, 16)
+	OnlineLabel.Position = UDim2.fromOffset(95, 27)
+	OnlineLabel.BackgroundTransparency = 1
+	OnlineLabel.Text = "Conectando..."
+	OnlineLabel.Font = Enum.Font.GothamBold
+	OnlineLabel.TextSize = 11
+	OnlineLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
+	OnlineLabel.TextXAlignment = Enum.TextXAlignment.Left
+	OnlineLabel.TextScaled = true
+	OnlineLabel.ZIndex = 11
+	OnlineLabel.Parent = Top
+
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = 11
+	limit.Parent = OnlineLabel
+
+	local unbindOnline = Online.bind(function(n)
+		if not OnlineLabel.Parent then return end
+		if n then
+			OnlineLabel.Text = "🟢 En línea hay " .. n .. " usuarios usando el guion"
+			OnlineLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
+		else
+			OnlineLabel.Text = "🔴 Sin conexión"
+			OnlineLabel.TextColor3 = Color3.fromRGB(230, 90, 90)
+		end
+	end)
+	GUI.Destroying:Connect(unbindOnline)
+end
 
 local Min = Instance.new("TextButton")
 Min.Size = UDim2.fromOffset(32, 28)
